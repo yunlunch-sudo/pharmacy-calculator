@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>처방전 계산기 - 윤약국</title>
+    <script defer src="js/alpine.min.js"></script>
+    <script src="js/fee_table.js"></script>
+    <script src="js/calculator.js"></script>
+    <script src="js/drug_db.js"></script>
+    <link rel="stylesheet" href="css/prescription.css">
+</head>
+<body x-data="prescriptionApp()" x-init="init()">
+
+<div class="container">
+    <div class="card">
+        <!-- 헤더 -->
+        <div class="header">처 방 전 계 산 기</div>
+
+        <!-- 환자/조제 정보 -->
+        <div class="grid-2 border-b">
+            <!-- 환자 정보 -->
+            <div class="section border-b sm-border-r sm-no-border-b">
+                <div class="section-title">환자 정보</div>
+                <div class="form-row">
+                    <label class="form-label">보험유형</label>
+                    <select x-model="insuranceType" class="form-select" style="flex:none;width:auto">
+                        <option value="health">의료보험</option>
+                        <option value="subHealth">의료보험(차상위)</option>
+                        <option value="medical1">의료급여 1종</option>
+                        <option value="medical2">의료급여 2종</option>
+                        <option value="auto">자동차보험</option>
+                        <option value="industrial">산재보험</option>
+                        <option value="etc">기타</option>
+                    </select>
+                    <span x-show="insuranceType === 'subHealth'" class="tag tag-blue" style="font-size:0.7rem">본인부담 500원</span>
+                    <span x-show="insuranceType === 'medical1'" class="tag tag-green" style="font-size:0.7rem">본인부담 0원</span>
+                    <span x-show="insuranceType === 'medical2'" class="tag tag-blue" style="font-size:0.7rem">본인부담 500원</span>
+                    <span x-show="insuranceType === 'auto' || insuranceType === 'industrial' || insuranceType === 'etc'" class="tag tag-orange" style="font-size:0.7rem">본인부담 100%</span>
+                </div>
+                <div class="form-row">
+                    <label class="form-label">생년월일</label>
+                    <input type="date" x-model="birthDate" @change="calculateAge()" class="form-input">
+                </div>
+                <div class="form-row">
+                    <label class="form-label">나이</label>
+                    <span style="font-size:0.875rem;font-weight:bold" x-text="age !== null ? age + '세' : '-'"></span>
+                    <span x-show="age !== null && age < 6" class="tag tag-red">소아</span>
+                    <span x-show="age !== null && age <= 18 && age >= 6" class="tag tag-blue">18세이하</span>
+                </div>
+                <div class="form-row">
+                    <label class="form-label"></label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" x-model="isPremature">
+                        <span>조산아 (F016)</span>
+                    </label>
+                    <span x-show="isPremature" class="tag tag-red" style="font-size:0.7rem">본인부담 5%</span>
+                </div>
+            </div>
+
+            <!-- 조제 정보 -->
+            <div class="section">
+                <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+                    <span>조제 정보</span>
+                    <label class="checkbox-label" style="font-size:0.75rem">
+                        <input type="checkbox" x-model="manualMode">
+                        <span>수동 입력</span>
+                    </label>
+                </div>
+
+                <!-- 자동 모드: 현재 날짜/시간 표시 -->
+                <template x-if="!manualMode">
+                    <div>
+                        <div class="form-row">
+                            <label class="form-label form-label-sm">날짜</label>
+                            <span style="font-size:0.875rem" x-text="autoDateDisplay"></span>
+                            <span class="tag" :class="autoDayLabel.cls" x-text="autoDayLabel.text"></span>
+                            <span x-show="autoHolidayName" class="tag tag-red" x-text="autoHolidayName" style="font-size:0.7rem"></span>
+                        </div>
+                        <div class="form-row">
+                            <label class="form-label form-label-sm">시각</label>
+                            <span style="font-size:0.875rem;font-weight:bold" x-text="autoTimeDisplay"></span>
+                            <span class="tag" :class="timeLabel.cls" x-text="timeLabel.text"></span>
+                            <button @click="refreshNow()" style="font-size:0.7rem;color:#2563eb;background:none;border:1px solid #93c5fd;border-radius:0.25rem;padding:0 0.375rem;cursor:pointer;margin-left:0.25rem">새로고침</button>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- 수동 모드: 직접 선택 -->
+                <template x-if="manualMode">
+                    <div>
+                        <div class="form-row">
+                            <label class="form-label form-label-sm">요일</label>
+                            <select x-model="dayType" class="form-select">
+                                <option value="weekday">평일</option>
+                                <option value="saturday">토요일</option>
+                                <option value="holiday">일요일/공휴일</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label class="form-label form-label-sm">시각</label>
+                            <input type="time" x-model="dispensingTime" class="form-input">
+                            <span class="tag" :class="timeLabel.cls" x-text="timeLabel.text"></span>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="checkbox-row">
+                    <label class="checkbox-label">
+                        <input type="checkbox" x-model="isMoonlight">
+                        <span>달빛약국</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" x-model="isNonFaceToFace">
+                        <span>비대면</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- 처방 내역 -->
+        <div class="border-b">
+            <div class="section-header border-b">처 방 내 역</div>
+
+            <!-- 테이블 헤더 -->
+            <div class="drug-header">
+                <div>#</div>
+                <div>약품명</div>
+                <div>1회량</div>
+                <div>1일횟수</div>
+                <div>총일수</div>
+                <div>총량</div>
+                <div>약가</div>
+                <div>금액</div>
+            </div>
+
+            <!-- 약품 행 -->
+            <template x-for="(drug, idx) in drugs" :key="idx">
+                <div class="drug-row" :class="drug.name ? 'has-drug' : 'no-drug'">
+                    <div class="drug-cell drug-cell-num" x-text="idx + 1"></div>
+                    <!-- 약품명 (자동완성) -->
+                    <div class="drug-cell-name">
+                        <div style="display:flex;align-items:center;gap:0.125rem">
+                            <input type="text"
+                                   :value="drug.name"
+                                   @input="onDrugSearch(idx, $event.target.value)"
+                                   @focus="onDrugFocus(idx)"
+                                   @blur="setTimeout(() => closeSuggestions(idx), 200)"
+                                   @keydown.down.prevent="moveSuggestion(idx, 1)"
+                                   @keydown.up.prevent="moveSuggestion(idx, -1)"
+                                   @keydown.enter.prevent="onNameEnter(idx)"
+                                   @keydown.escape="closeSuggestions(idx)"
+                                   @keydown.right="onCellNav(idx, 'name', 'right', $event)"
+                                   :data-row="idx" data-field="name"
+                                   placeholder="약품명 검색..."
+                                   class="drug-input drug-input-name" style="flex:1;min-width:0">
+                            <span x-show="drug.name"
+                                  @click="cycleCoverage(idx)"
+                                  class="coverage-tag"
+                                  :class="'coverage-' + drug.coverageType"
+                                  x-text="drug.coverageType === 'insured' ? '보험' : drug.coverageType === 'fullPay' ? '100/100' : '비급여'"
+                                  title="클릭하여 전환: 보험 → 100/100 → 비급여"></span>
+                        </div>
+                        <!-- 자동완성 드롭다운 -->
+                        <div x-show="drug.showSuggestions && drug.suggestions.length > 0" class="suggestions">
+                            <template x-for="(s, si) in drug.suggestions" :key="si">
+                                <div @mousedown.prevent="selectDrug(idx, s)"
+                                     class="suggestion-item" :class="si === drug.suggestionIdx ? 'active' : ''">
+                                    <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                        <span x-text="s.name"></span>
+                                        <span style="color:#6b7280;font-size:0.7rem;margin-left:0.25rem" x-text="'[' + s.code + ']'"></span>
+                                    </span>
+                                    <span class="suggestion-price" x-text="'₩' + Number(s.price).toLocaleString()"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="drug-cell">
+                        <input type="number" x-model.number="drug.dosePerTime" min="0" step="0.5"
+                               @input="recalcDrug(idx)"
+                               @keydown.enter.prevent="focusCell(idx, 'timesPerDay')"
+                               @keydown.right="onCellNav(idx, 'dosePerTime', 'right', $event)"
+                               @keydown.left="onCellNav(idx, 'dosePerTime', 'left', $event)"
+                               @focus="$event.target.select()"
+                               :data-row="idx" data-field="dosePerTime"
+                               placeholder="-"
+                               class="drug-input">
+                    </div>
+                    <div class="drug-cell">
+                        <input type="number" x-model.number="drug.timesPerDay" min="0" step="1"
+                               @input="recalcDrug(idx)"
+                               @keydown.enter.prevent="focusCell(idx, 'totalDays')"
+                               @keydown.right="onCellNav(idx, 'timesPerDay', 'right', $event)"
+                               @keydown.left="onCellNav(idx, 'timesPerDay', 'left', $event)"
+                               @focus="$event.target.select()"
+                               :data-row="idx" data-field="timesPerDay"
+                               placeholder="-"
+                               class="drug-input">
+                    </div>
+                    <div class="drug-cell">
+                        <input type="number" x-model.number="drug.totalDays" min="0" step="1"
+                               @input="recalcDrug(idx)"
+                               @keydown.enter.prevent="onLastFieldEnter(idx)"
+                               @keydown.right="onCellNav(idx, 'totalDays', 'right', $event)"
+                               @keydown.left="onCellNav(idx, 'totalDays', 'left', $event)"
+                               @focus="$event.target.select()"
+                               :data-row="idx" data-field="totalDays"
+                               placeholder="-"
+                               class="drug-input">
+                    </div>
+                    <div class="drug-cell" x-text="drug.totalQty || ''"></div>
+                    <div class="drug-cell" x-text="drug.unitPrice ? Number(drug.unitPrice).toLocaleString() : ''"></div>
+                    <div class="drug-cell drug-cell-amount" x-text="drug.amount ? '₩' + drug.amount.toLocaleString() : ''"></div>
+                </div>
+            </template>
+
+            <!-- 행 추가/삭제 -->
+            <div class="action-bar">
+                <button @click="addDrugRow()" class="btn-add">+ 약품 추가</button>
+                <button @click="removeDrugRow()" x-show="drugs.length > 1" class="btn-remove">- 마지막 삭제</button>
+            </div>
+        </div>
+
+        <!-- 조제 옵션 -->
+        <div class="options border-b">
+            <div class="section-title">조제 옵션</div>
+            <div class="options-row">
+                <label class="checkbox-label">
+                    <input type="checkbox" x-model="isPowder">
+                    <span>가루약</span>
+                </label>
+                <div x-show="isPowder" class="powder-days">
+                    <label class="text-hint">가루약 일수:</label>
+                    <input type="number" x-model.number="powderDays" min="0" step="1" class="powder-input" placeholder="전체">
+                    <span class="text-hint">(0=투약일수와 동일)</span>
+                </div>
+                <label class="checkbox-label">
+                    <input type="checkbox" x-model="hasNarcotic">
+                    <span>마약류</span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" x-model="hasTopical">
+                    <span>외용제 포함</span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" x-model="topicalOnly"
+                           @change="if(topicalOnly) { hasTopical=false; injectionOnly=false; }">
+                    <span>외용제만</span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" x-model="injectionOnly"
+                           @change="if(injectionOnly) { hasTopical=false; topicalOnly=false; }">
+                    <span>주사제만</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- 계산 결과 -->
+        <div>
+            <div class="section-header-dark">계 산 결 과</div>
+
+            <!-- 조제료 상세 (토글) -->
+            <div class="section border-b">
+                <button @click="showDetail = !showDetail" class="detail-toggle">
+                    <span x-text="showDetail ? '▼' : '▶'"></span>
+                    <span>조제료 항목별 상세</span>
+                </button>
+                <div x-show="showDetail" x-transition>
+                    <table class="detail-table">
+                        <thead>
+                            <tr>
+                                <th>항목</th>
+                                <th>항목명</th>
+                                <th>점수</th>
+                                <th>배수</th>
+                                <th>금액</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="item in calcResult.items" :key="item.code">
+                                <tr>
+                                    <td x-text="item.code"></td>
+                                    <td x-text="item.name"></td>
+                                    <td x-text="item.baseScore.toFixed(2)"></td>
+                                    <td x-text="'x' + item.multiplier"></td>
+                                    <td x-text="itemWon(item.baseScore, item.multiplier, CONVERSION_INDEX).toLocaleString() + '원'"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                    <div class="conditions">
+                        <template x-for="cond in calcResult.appliedConditions" :key="cond">
+                            <div class="condition-item">
+                                <span class="condition-bullet">*</span>
+                                <span x-text="cond"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 금액 요약 -->
+            <div class="result-row">
+                <span class="result-label">
+                    약품비 합계
+                    <template x-if="fullPayDrugTotal > 0 || nonCoveredDrugTotal > 0">
+                        <span style="font-size:0.7rem;color:#6b7280">
+                            (보험 ₩<span x-text="insuredDrugTotal.toLocaleString()"></span><template x-if="fullPayDrugTotal > 0"> / 100/100 ₩<span x-text="fullPayDrugTotal.toLocaleString()"></span></template><template x-if="nonCoveredDrugTotal > 0"> / 비급여 ₩<span x-text="nonCoveredDrugTotal.toLocaleString()"></span></template>)
+                        </span>
+                    </template>
+                </span>
+                <span class="result-value" x-text="'₩' + drugTotal.toLocaleString()"></span>
+            </div>
+            <div class="result-row">
+                <span class="result-label">처방조제료</span>
+                <span class="result-value" x-text="'₩' + calcResult.totalFee.toLocaleString()"></span>
+            </div>
+            <div class="result-row bg-light">
+                <span class="result-label-bold">총액 (약값)</span>
+                <span class="result-value-lg" x-text="'₩' + grandTotal.toLocaleString()"></span>
+            </div>
+            <div class="copay-select-row">
+                <div class="copay-select-group" style="flex:1;flex-wrap:wrap;gap:0.25rem 0.5rem">
+                    <span class="result-label">본인부담</span>
+                    <span x-show="!copayManual" class="tag tag-blue" x-text="copayInfo.desc" style="font-size:0.7rem"></span>
+                    <template x-if="copayManual">
+                        <select x-model.number="copayRate" class="form-select" style="flex:none;width:auto">
+                            <option value="0.3">30% (일반)</option>
+                            <option value="0">0% (본인부담 없음)</option>
+                            <option value="0.1">10%</option>
+                            <option value="0.2">20%</option>
+                            <option value="0.5">50%</option>
+                            <option value="1.0">100% (전액본인)</option>
+                        </select>
+                    </template>
+                </div>
+                <label class="checkbox-label" style="font-size:0.7rem;flex-shrink:0">
+                    <input type="checkbox" x-model="copayManual">
+                    <span>수동</span>
+                </label>
+            </div>
+            <div class="result-row bg-highlight">
+                <span class="result-label-primary">본인부담금</span>
+                <span class="result-value-primary" x-text="'₩' + copayAmount.toLocaleString()"></span>
+            </div>
+            <div class="result-row bg-light">
+                <span class="result-label-muted">공단부담금</span>
+                <span class="result-value-muted" x-text="'₩' + insuranceAmount.toLocaleString()"></span>
+            </div>
+            <div style="padding:0.75rem;text-align:center">
+                <button @click="resetAll()" class="btn-reset">완료 (새 처방)</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">윤약국 처방전 계산기 | 2026년 수가 기준 | 오프라인 사용 가능</div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

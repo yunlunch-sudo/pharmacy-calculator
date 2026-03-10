@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>조제료 계산기 JS 테스트</title>
+    <script src="fee_table.js"></script>
+    <script src="calculator.js"></script>
+</head>
+<body>
+<h2>처방조제료 계산기 JS 검증 (22개 케이스)</h2>
+<pre id="output"></pre>
+<script>
+const testCases = [
+    { name: "31세/5일/토16시", inp: {days:5,age:31,hour:16,isHoliday:false,isSaturday:true,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:false,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:false}, expected: 9700 },
+    { name: "10세/5일/외용/19:30/달빛", inp: {days:5,age:10,hour:19,isHoliday:false,isSaturday:false,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:true,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:true}, expected: 14840 },
+    { name: "45세/60일/외용/평일19시", inp: {days:60,age:45,hour:19,isHoliday:false,isSaturday:false,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:true,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:false}, expected: 25150 },
+    { name: "54세/90일/외용/평일19시", inp: {days:90,age:54,hour:19,isHoliday:false,isSaturday:false,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:true,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:false}, expected: 26990 },
+    { name: "30세/7일/평일21시", inp: {days:7,age:30,hour:21,isHoliday:false,isSaturday:false,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:false,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:false}, expected: 10820 },
+    { name: "0세/3일/22시/달빛", inp: {days:3,age:0,hour:22,isHoliday:true,isSaturday:false,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:false,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:true}, expected: 20460 },
+    { name: "3세/4일/외용/달빛/일16시", inp: {days:4,age:3,hour:16,isHoliday:true,isSaturday:false,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:true,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:true}, expected: 14980 },
+    { name: "5세/3일/가루/비대면/일15시", inp: {days:3,age:5,hour:15,isHoliday:true,isSaturday:false,isPowder:true,powderDays:0,hasNarcotic:false,hasTopical:false,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:true,isMoonlightPharmacy:false}, expected: 8930 },
+    { name: "34세/3일/비대면/일12시", inp: {days:3,age:34,hour:12,isHoliday:true,isSaturday:false,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:false,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:true,isMoonlightPharmacy:false}, expected: 8120 },
+    { name: "26세/90일/외용/일12시", inp: {days:90,age:26,hour:12,isHoliday:true,isSaturday:false,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:true,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:false}, expected: 26990 },
+    { name: "64세/28일/마약/토10시", inp: {days:28,age:64,hour:10,isHoliday:false,isSaturday:true,isPowder:false,powderDays:0,hasNarcotic:true,hasTopical:false,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:false}, expected: 18590 },
+    { name: "8세/자가주사제/일19시", inp: {days:1,age:8,hour:19,isHoliday:true,isSaturday:false,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:false,hasInjection:false,topicalOnly:true,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:false}, expected: 7420 },
+    { name: "1세/15일/소아심야/외용/가루/달빛/일20시", inp: {days:15,age:1,hour:20,isHoliday:true,isSaturday:false,isPowder:true,powderDays:0,hasNarcotic:false,hasTopical:true,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:true}, expected: 30860 },
+    { name: "7세/30일/외용/달빛/일11시", inp: {days:30,age:7,hour:11,isHoliday:true,isSaturday:false,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:true,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:true}, expected: 23460 },
+    { name: "8세/60일/달빛/일11시", inp: {days:60,age:8,hour:11,isHoliday:true,isSaturday:false,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:false,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:true}, expected: 28630 },
+    { name: "4세/30일/달빛/일10시", inp: {days:30,age:4,hour:10,isHoliday:true,isSaturday:false,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:false,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:true}, expected: 23330 },
+    { name: "4세/외용단일/달빛/금22시", inp: {days:1,age:4,hour:22,isHoliday:false,isSaturday:false,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:false,hasInjection:false,topicalOnly:true,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:true}, expected: 18510 },
+    { name: "1세/3일/가루/평일09시", inp: {days:3,age:1,hour:9,isHoliday:false,isSaturday:false,isPowder:true,powderDays:0,hasNarcotic:false,hasTopical:false,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:false}, expected: 7830 },
+    { name: "5세/14일/가루/평일09시", inp: {days:14,age:5,hour:9,isHoliday:false,isSaturday:false,isPowder:true,powderDays:0,hasNarcotic:false,hasTopical:false,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:false}, expected: 13600 },
+    { name: "13세/14일/달빛/평일18시", inp: {days:14,age:13,hour:18,isHoliday:false,isSaturday:false,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:false,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:true}, expected: 18760 },
+    { name: "1세/외용단일/평일08시/달빛", inp: {days:1,age:1,hour:8,isHoliday:false,isSaturday:false,isPowder:false,powderDays:0,hasNarcotic:false,hasTopical:false,hasInjection:false,topicalOnly:true,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:true}, expected: 8120 },
+    { name: "4세/28일/가루5일/평일15시", inp: {days:28,age:4,hour:15,isHoliday:false,isSaturday:false,isPowder:true,powderDays:5,hasNarcotic:false,hasTopical:false,hasInjection:false,topicalOnly:false,injectionOnly:false,isNonFaceToFace:false,isMoonlightPharmacy:false}, expected: 15480 },
+];
+
+let passed = 0;
+let failed = 0;
+let output = '';
+
+for (const tc of testCases) {
+    const result = calculate(tc.inp);
+    const actual = result.totalFee;
+    const ok = actual === tc.expected;
+    if (ok) passed++;
+    else failed++;
+    const mark = ok ? 'PASS' : 'FAIL';
+    output += `[${mark}] ${tc.name}: ${actual}원 ${ok ? '' : '(expected ' + tc.expected + '원)'}\n`;
+}
+
+output += `\n결과: ${passed}/${testCases.length} 통과, ${failed} 실패\n`;
+
+document.getElementById('output').textContent = output;
+
+if (failed > 0) {
+    document.getElementById('output').style.color = 'red';
+} else {
+    document.getElementById('output').style.color = 'green';
+}
+</script>
+</body>
+</html>
