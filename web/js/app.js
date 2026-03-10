@@ -204,13 +204,22 @@ function prescriptionApp() {
             this.$watch('age', () => this.recalcAll());
         },
 
+        onBirthInput() {
+            // 숫자만 허용
+            this.birthDate = this.birthDate.replace(/[^0-9]/g, '').slice(0, 8);
+            this.calculateAge();
+        },
+
         calculateAge() {
-            if (!this.birthDate) { this.age = null; return; }
-            const birth = new Date(this.birthDate);
+            if (!this.birthDate || this.birthDate.length !== 8) { this.age = null; return; }
+            const y = parseInt(this.birthDate.slice(0, 4));
+            const m = parseInt(this.birthDate.slice(4, 6)) - 1;
+            const d = parseInt(this.birthDate.slice(6, 8));
+            if (y < 1900 || y > 2100 || m < 0 || m > 11 || d < 1 || d > 31) { this.age = null; return; }
             const today = new Date();
-            let a = today.getFullYear() - birth.getFullYear();
-            const m = today.getMonth() - birth.getMonth();
-            if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) a--;
+            let a = today.getFullYear() - y;
+            const dm = today.getMonth() - m;
+            if (dm < 0 || (dm === 0 && today.getDate() < d)) a--;
             this.age = Math.max(0, a);
         },
 
@@ -339,29 +348,29 @@ function prescriptionApp() {
                 insuredCopay = insured > 0 ? 500 : 0;
                 desc = '의료급여 2종 → 500원';
             } else {
-                // 건강보험
-                const total = insured;
+                // 건강보험: 비급여 약품비 포함한 전체 금액 기준으로 본인부담률 적용 후, 비급여는 별도 추가
+                const total = this.grandTotal;
                 const age = this.age;
 
                 if (this.isPremature) {
-                    insuredCopay = Math.floor(total * 0.05 / 100) * 100;
+                    insuredCopay = Math.ceil(total * 0.05 / 100) * 100;
                     desc = '조산아 F016 → 5%';
                 } else if (age !== null && age >= 65) {
                     if (total <= 10000) {
                         insuredCopay = total > 0 ? 1000 : 0;
                         desc = '65세이상 / 1만원이하 → 정액';
                     } else if (total <= 12000) {
-                        insuredCopay = Math.floor(total * 0.2 / 100) * 100;
+                        insuredCopay = Math.ceil(total * 0.2 / 100) * 100;
                         desc = '65세이상 / 1~1.2만원 → 20%';
                     } else {
-                        insuredCopay = Math.floor(total * 0.3 / 100) * 100;
+                        insuredCopay = Math.ceil(total * 0.3 / 100) * 100;
                         desc = '65세이상 / 1.2만원초과 → 30%';
                     }
                 } else if (age !== null && age < 6) {
-                    insuredCopay = Math.floor(total * 0.2 / 100) * 100;
+                    insuredCopay = Math.ceil(total * 0.2 / 100) * 100;
                     desc = '6세미만 → 20%';
                 } else {
-                    insuredCopay = Math.floor(total * 0.3 / 100) * 100;
+                    insuredCopay = Math.ceil(total * 0.3 / 100) * 100;
                     desc = '일반 → 30%';
                 }
             }

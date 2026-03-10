@@ -40,7 +40,7 @@
                 </div>
                 <div class="form-row">
                     <label class="form-label">생년월일</label>
-                    <input type="date" x-model="birthDate" @change="calculateAge()" class="form-input">
+                    <input type="text" x-model="birthDate" @input="onBirthInput()" class="form-input" placeholder="19901231" maxlength="8" inputmode="numeric" style="letter-spacing:0.1em">
                 </div>
                 <div class="form-row">
                     <label class="form-label">나이</label>
