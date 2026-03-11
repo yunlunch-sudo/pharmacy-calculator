@@ -1012,8 +1012,8 @@ const DRUG_DB_DATA =
   {
     "name": "훼럼키드액",
     "code": "644904714",
-    "price": 14166,
-    "note": "",
+    "price": 15000,
+    "note": "비보험",
     "searchName": "훼럼키드액"
   },
   {
