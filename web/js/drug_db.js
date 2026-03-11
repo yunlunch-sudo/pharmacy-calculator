@@ -2060,6 +2060,20 @@ const DRUG_DB_DATA =
     "searchName": "엔디멜라정(판매금지)-처방용!!"
   },
   {
+    "name": "하이드락섹산10g",
+    "code": "HYDEX10",
+    "price": 1100,
+    "note": "비보험",
+    "searchName": "하이드락섹산10g"
+  },
+  {
+    "name": "하이드락섹산30g",
+    "code": "HYDEX30",
+    "price": 1600,
+    "note": "비보험",
+    "searchName": "하이드락섹산30g"
+  },
+  {
     "name": "대원케토티펜시럽(케토티펜푸마르산염)_(0.138g/500mL)",
     "code": "671800931",
     "price": 43,
