@@ -502,6 +502,7 @@ function prescriptionApp() {
             this.drugs[idx].name = drug.name;
             this.drugs[idx].code = drug.code;
             this.drugs[idx].unitPrice = drug.price;
+            this.drugs[idx].coverageType = (drug.note === '비보험') ? 'nonCovered' : 'insured';
             this.drugs[idx].showSuggestions = false;
             this.drugs[idx].suggestions = [];
             this.recalcDrug(idx);
