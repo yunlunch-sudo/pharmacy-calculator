@@ -451,11 +451,14 @@ function prescriptionApp() {
             }
         },
 
-        // 약품 급여 유형 순환 (보험 → 100/100 → 비급여)
+        // 약품 급여 유형 순환 (보험 → 100/100 → 비급여), 선택값 localStorage에 저장
         cycleCoverage(idx) {
             const order = ['insured', 'fullPay', 'nonCovered'];
             const cur = order.indexOf(this.drugs[idx].coverageType);
-            this.drugs[idx].coverageType = order[(cur + 1) % 3];
+            const next = order[(cur + 1) % 3];
+            this.drugs[idx].coverageType = next;
+            const code = this.drugs[idx].code;
+            if (code) localStorage.setItem('drugCoverage_' + code, next);
             this.recalcAll();
         },
 
@@ -506,9 +509,12 @@ function prescriptionApp() {
         selectDrug(idx, drug) {
             this.drugs[idx].name = drug.name;
             this.drugs[idx].code = drug.code;
-            this.drugs[idx].coverageType = (drug.note === '비보험') ? 'nonCovered' : 'insured';
-            // 비급여 약품은 localStorage에 저장된 가격 우선 적용
-            if (drug.note === '비보험') {
+            // localStorage에 저장된 coverageType 우선, 없으면 DB 기본값
+            const savedCoverage = localStorage.getItem('drugCoverage_' + drug.code);
+            this.drugs[idx].coverageType = savedCoverage || ((drug.note === '비보험') ? 'nonCovered' : 'insured');
+            // nonCovered(비급여)인 경우 localStorage 저장 가격 우선 적용
+            const isNonCovered = this.drugs[idx].coverageType === 'nonCovered';
+            if (isNonCovered) {
                 const saved = localStorage.getItem('nonCoveredPrice_' + drug.code);
                 this.drugs[idx].unitPrice = saved ? Number(saved) : drug.price;
             } else {

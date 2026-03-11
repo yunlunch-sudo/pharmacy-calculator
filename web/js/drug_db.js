@@ -1293,7 +1293,7 @@ const DRUG_DB_DATA =
     "name": "하이드라섹산30mg",
     "code": "644206372",
     "price": 1212,
-    "note": "",
+    "note": "비보험",
     "searchName": "하이드라섹산30mg"
   },
   {
@@ -1727,7 +1727,7 @@ const DRUG_DB_DATA =
     "name": "하이드라섹산10mg",
     "code": "644206382",
     "price": 929,
-    "note": "",
+    "note": "비보험",
     "searchName": "하이드라섹산10mg"
   },
   {
