@@ -353,8 +353,8 @@ function prescriptionApp() {
                 insuredCopay = insured > 0 ? 500 : 0;
                 desc = '의료급여 2종 → 500원';
             } else {
-                // 건강보험: 비급여 약품비 포함한 전체 금액 기준으로 본인부담률 적용 후, 비급여는 별도 추가
-                const total = this.grandTotal;
+                // 건강보험: 보험 적용 총액(조제료+보험약품비) 기준으로 copay% 적용, 비급여는 extraPay로 별도 100% 부담
+                const total = insured; // insuredTotal (보험약 + 조제료)
                 const age = this.age;
 
                 if (this.isPremature) {
