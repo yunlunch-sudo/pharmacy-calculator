@@ -8,6 +8,7 @@
     <script src="js/fee_table.js"></script>
     <script src="js/calculator.js"></script>
     <script src="js/drug_db.js"></script>
+    <script src="js/counseling_db.js"></script>
     <link rel="stylesheet" href="css/prescription.css">
 </head>
 <body x-data="prescriptionApp()" x-init="init()">
@@ -357,8 +358,9 @@
                 <span class="result-label-muted">공단부담금</span>
                 <span class="result-value-muted" x-text="'₩' + insuranceAmount.toLocaleString()"></span>
             </div>
-            <div style="padding:0.75rem;text-align:center">
+            <div style="padding:0.75rem;text-align:center;display:flex;gap:0.5rem;justify-content:center">
                 <button @click="resetAll()" class="btn-reset">완료 (새 처방)</button>
+                <button @click="printCounseling()" class="btn-print">복약지도 출력</button>
             </div>
         </div>
     </div>

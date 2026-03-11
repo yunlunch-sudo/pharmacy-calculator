@@ -533,6 +533,100 @@ function prescriptionApp() {
             this.recalcAll();
         },
 
+        printCounseling() {
+            // 약품명이 있는 약만 필터
+            const activeDrugs = this.drugs.filter(d => d.name && d.name.trim());
+            if (activeDrugs.length === 0) {
+                alert('처방 약품을 먼저 입력해 주세요.');
+                return;
+            }
+
+            const today = new Date();
+            const dateStr = `${today.getFullYear()}년 ${today.getMonth()+1}월 ${today.getDate()}일`;
+
+            // 카드 HTML 생성
+            const cardColors = ['#1d6fad','#2d7f3a','#a3440e','#6b2fa0','#a0522d','#1a7a7a','#8b1a1a'];
+            const cards = activeDrugs.map((drug, i) => {
+                const c = findCounseling(drug.name);
+                const color = cardColors[i % cardColors.length];
+                const doseDesc = drug.dosePerTime && drug.timesPerDay && drug.totalDays
+                    ? `1회 ${drug.dosePerTime}개(정/포/ml)씩, 1일 ${drug.timesPerDay}회, ${drug.totalDays}일분`
+                    : '';
+                return `
+                <div class="drug-card">
+                    <div class="card-header" style="background:${color}">
+                        <span class="card-name">${drug.name.replace(/\(.*?\)/g,'').replace(/_\(.*?\)/g,'').trim()}</span>
+                        ${c ? `<span class="card-ingredient">${c.name}</span>` : ''}
+                    </div>
+                    <div class="card-body">
+                        ${c ? `
+                        <table class="info-table">
+                            <tr><th>효&nbsp;&nbsp;&nbsp;능</th><td>${c.efficacy}</td></tr>
+                            <tr><th>성분/함량</th><td>${c.ingredient}</td></tr>
+                            <tr><th>모&nbsp;&nbsp;&nbsp;양</th><td>${c.shape}</td></tr>
+                            ${doseDesc ? `<tr><th>복 용 량</th><td><strong>${doseDesc}</strong></td></tr>` : ''}
+                            <tr><th>복 용 법</th><td>${c.method}</td></tr>
+                            <tr><th>보 관 법</th><td>${c.storage}</td></tr>
+                            <tr><th>부 작 용</th><td>${c.sideEffects}</td></tr>
+                        </table>
+                        <div class="precautions">
+                            <span class="prec-label">⚠ 주의사항</span> ${c.precautions}
+                        </div>
+                        ` : `
+                        <div class="no-data">
+                            ${doseDesc ? `<p><strong>${doseDesc}</strong></p>` : ''}
+                            <p style="color:#888;font-size:10px">복약지도 정보를 준비 중입니다.</p>
+                        </div>
+                        `}
+                    </div>
+                </div>`;
+            }).join('');
+
+            const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>복약안내문</title>
+<style>
+  @page { size: A4 portrait; margin: 8mm 8mm 8mm 8mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
+  body { font-size: 10px; color: #222; }
+  .page-header { text-align: center; margin-bottom: 5mm; padding-bottom: 3mm; border-bottom: 2px solid #333; }
+  .page-header h1 { font-size: 16px; font-weight: bold; letter-spacing: 4px; }
+  .page-header .sub { font-size: 10px; color: #555; margin-top: 2px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .drug-card { border: 1px solid #ccc; border-radius: 3px; overflow: hidden; page-break-inside: avoid; }
+  .card-header { padding: 3px 6px; display: flex; align-items: baseline; gap: 5px; }
+  .card-name { font-size: 11px; font-weight: bold; color: #fff; flex-shrink: 0; }
+  .card-ingredient { font-size: 9px; color: rgba(255,255,255,0.85); }
+  .card-body { padding: 4px 5px; }
+  .info-table { width: 100%; border-collapse: collapse; font-size: 9px; }
+  .info-table th { width: 52px; color: #444; font-weight: 600; text-align: left; padding: 1.5px 3px; white-space: nowrap; vertical-align: top; }
+  .info-table td { padding: 1.5px 3px; color: #222; vertical-align: top; line-height: 1.4; }
+  .info-table tr:nth-child(odd) td, .info-table tr:nth-child(odd) th { background: #f9f9f9; }
+  .precautions { margin-top: 3px; background: #fff8e8; border-left: 3px solid #f0a500; padding: 3px 5px; font-size: 9px; line-height: 1.4; color: #555; }
+  .prec-label { font-weight: bold; color: #c07000; }
+  .no-data { padding: 6px; color: #666; font-size: 9px; }
+  .page-footer { margin-top: 5mm; text-align: center; font-size: 9px; color: #888; border-top: 1px solid #ccc; padding-top: 2mm; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>복 약 안 내 문</h1>
+    <div class="sub">윤약국 &nbsp;|&nbsp; 발행일: ${dateStr} &nbsp;|&nbsp; 총 ${activeDrugs.length}가지 약품</div>
+  </div>
+  <div class="grid">${cards}</div>
+  <div class="page-footer">본 복약안내문은 복약지도를 보조하기 위한 자료입니다. 궁금한 사항은 약사에게 문의하세요.</div>
+  <script>window.onload = function(){ window.print(); }<\/script>
+</body>
+</html>`;
+
+            const w = window.open('', '_blank');
+            w.document.write(html);
+            w.document.close();
+        },
+
         addDrugRow() {
             this.drugs.push(createEmptyDrug());
         },
