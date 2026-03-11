@@ -152,6 +152,7 @@ function prescriptionApp() {
         dispensingTime: `${hh}:${mm}`,
         isMoonlight: false,
         isNonFaceToFace: false,
+        noDispensingFee: false,
 
         // 약품 목록
         drugs: [createEmptyDrug()],
@@ -303,11 +304,13 @@ function prescriptionApp() {
         },
 
         get grandTotal() {
-            return this.drugTotal + this.calcResult.totalFee;
+            const fee = this.noDispensingFee ? 0 : this.calcResult.totalFee;
+            return this.drugTotal + fee;
         },
 
         // 보험 적용 총액 (보험약 + 처방조제료). 비급여만 있으면 조제료도 비급여
         get insuredTotal() {
+            if (this.noDispensingFee) return 0;
             const hasInsuredDrugs = this.drugs.some(d => d.name && (d.coverageType === 'insured' || d.coverageType === 'fullPay'));
             if (hasInsuredDrugs) {
                 return this.insuredDrugTotal + this.calcResult.totalFee;
@@ -320,7 +323,7 @@ function prescriptionApp() {
         get copayInfo() {
             const fullPay = this.fullPayDrugTotal;
             const nonCovered = this.nonCoveredDrugTotal;
-            const nonCoveredFee = (nonCovered > 0 && this.insuredDrugTotal === 0 && fullPay === 0)
+            const nonCoveredFee = (!this.noDispensingFee && nonCovered > 0 && this.insuredDrugTotal === 0 && fullPay === 0)
                 ? this.calcResult.totalFee : 0;
             const extraPay = fullPay + nonCovered + nonCoveredFee;
 
@@ -728,6 +731,7 @@ function prescriptionApp() {
             this.insuranceType = 'health';
             this.isMoonlight = false;
             this.isNonFaceToFace = false;
+            this.noDispensingFee = false;
             this.drugs = [createEmptyDrug()];
             this.isPowder = false;
             this.powderDays = 0;

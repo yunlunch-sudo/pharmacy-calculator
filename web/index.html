@@ -263,6 +263,10 @@
                            @change="if(injectionOnly) { hasTopical=false; topicalOnly=false; }">
                     <span>주사제만</span>
                 </label>
+                <label class="checkbox-label" style="color:#b45309;font-weight:600">
+                    <input type="checkbox" x-model="noDispensingFee">
+                    <span>조제료 제외 (비급여 약값만)</span>
+                </label>
             </div>
         </div>
 
@@ -323,8 +327,11 @@
                 <span class="result-value" x-text="'₩' + drugTotal.toLocaleString()"></span>
             </div>
             <div class="result-row">
-                <span class="result-label">처방조제료</span>
-                <span class="result-value" x-text="'₩' + calcResult.totalFee.toLocaleString()"></span>
+                <span class="result-label">처방조제료
+                    <span x-show="noDispensingFee" style="font-size:0.7rem;color:#b45309;font-weight:600">[제외]</span>
+                </span>
+                <span class="result-value" :style="noDispensingFee ? 'color:#9ca3af;text-decoration:line-through' : ''"
+                      x-text="'₩' + calcResult.totalFee.toLocaleString()"></span>
             </div>
             <div class="result-row bg-light">
                 <span class="result-label-bold">총액 (약값)</span>
