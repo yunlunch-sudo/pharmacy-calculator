@@ -26,8 +26,8 @@
                 <div class="form-row">
                     <label class="form-label">보험유형</label>
                     <select x-model="insuranceType" class="form-select" style="flex:none;width:auto">
-                        <option value="health">의료보험</option>
-                        <option value="subHealth">의료보험(차상위)</option>
+                        <option value="health">건강보험</option>
+                        <option value="subHealth">건강보험(차상위)</option>
                         <option value="medical1">의료급여 1종</option>
                         <option value="medical2">의료급여 2종</option>
                         <option value="auto">자동차보험</option>
@@ -41,7 +41,7 @@
                 </div>
                 <div class="form-row">
                     <label class="form-label">생년월일</label>
-                    <input type="text" x-model="birthDate" @input="onBirthInput()" class="form-input" placeholder="19901231" maxlength="8" inputmode="numeric" style="letter-spacing:0.1em">
+                    <input type="text" x-model="birthDate" @input="onBirthInput()" class="form-input" placeholder="760508" maxlength="6" inputmode="numeric" style="letter-spacing:0.1em">
                 </div>
                 <div class="form-row">
                     <label class="form-label">나이</label>
@@ -228,7 +228,7 @@
             <!-- 행 추가/삭제 -->
             <div class="action-bar">
                 <button @click="addDrugRow()" class="btn-add">+ 약품 추가</button>
-                <button @click="removeDrugRow()" x-show="drugs.length > 1" class="btn-remove">- 마지막 삭제</button>
+                <button @click="clearAllDrugs()" class="btn-remove">전체 삭제</button>
             </div>
         </div>
 

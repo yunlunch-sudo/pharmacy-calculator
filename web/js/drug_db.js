@@ -1230,7 +1230,7 @@ const DRUG_DB_DATA =
     "name": "폴락스산4그램",
     "code": "650205340",
     "price": 1432,
-    "note": "",
+    "note": "비보험",
     "searchName": "폴락스산4그램"
   },
   {
@@ -2170,5 +2170,26 @@ const DRUG_DB_DATA =
     "price": 18,
     "note": "",
     "searchName": "레보투스시럽(레보드로프로피진)_(3g/500ml)"
+  },
+  {
+    "name": "피지오머",
+    "code": "PHYSIOMER",
+    "price": 10000,
+    "note": "비보험",
+    "searchName": "피지오머"
+  },
+  {
+    "name": "티눈액",
+    "code": "TINUNLIQ",
+    "price": 5000,
+    "note": "비보험",
+    "searchName": "티눈액"
+  },
+  {
+    "name": "콘투라벡스겔",
+    "code": "CONTRAVEX",
+    "price": 8000,
+    "note": "비보험",
+    "searchName": "콘투라벡스겔"
   }
 ]

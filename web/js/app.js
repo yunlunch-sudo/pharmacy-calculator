@@ -205,17 +205,19 @@ function prescriptionApp() {
         },
 
         onBirthInput() {
-            // 숫자만 허용
-            this.birthDate = this.birthDate.replace(/[^0-9]/g, '').slice(0, 8);
+            // 숫자만 허용, 6자리
+            this.birthDate = this.birthDate.replace(/[^0-9]/g, '').slice(0, 6);
             this.calculateAge();
         },
 
         calculateAge() {
-            if (!this.birthDate || this.birthDate.length !== 8) { this.age = null; return; }
-            const y = parseInt(this.birthDate.slice(0, 4));
-            const m = parseInt(this.birthDate.slice(4, 6)) - 1;
-            const d = parseInt(this.birthDate.slice(6, 8));
-            if (y < 1900 || y > 2100 || m < 0 || m > 11 || d < 1 || d > 31) { this.age = null; return; }
+            if (!this.birthDate || this.birthDate.length !== 6) { this.age = null; return; }
+            const yy = parseInt(this.birthDate.slice(0, 2));
+            const m = parseInt(this.birthDate.slice(2, 4)) - 1;
+            const d = parseInt(this.birthDate.slice(4, 6));
+            // 00~29 → 2000년대, 30~99 → 1900년대
+            const y = yy <= 29 ? 2000 + yy : 1900 + yy;
+            if (m < 0 || m > 11 || d < 1 || d > 31) { this.age = null; return; }
             const today = new Date();
             let a = today.getFullYear() - y;
             const dm = today.getMonth() - m;
@@ -638,6 +640,11 @@ function prescriptionApp() {
             }
         },
 
+        clearAllDrugs() {
+            this.drugs = [createEmptyDrug()];
+            this.autoDetectOptions();
+        },
+
         // 약품 목록 기반 조제 옵션 자동 감지
         autoDetectOptions() {
             const named = this.drugs.filter(d => d.name);
@@ -685,6 +692,11 @@ function prescriptionApp() {
         },
 
         recalcAll() {
+            // 만6세미만 + 1~2일분 → 가루약가산 자동 해제
+            if (this.age !== null && this.age < 6 && this.maxDays > 0 && this.maxDays <= 2) {
+                if (this.isPowder) this.isPowder = false;
+            }
+
             const hour = this.currentHour;
             const age = this.age !== null ? this.age : 30;
 
