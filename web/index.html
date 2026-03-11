@@ -177,45 +177,46 @@
                         </div>
                     </div>
                     <div class="drug-cell">
-                        <input type="number" x-model.number="drug.dosePerTime" min="0" step="0.5"
+                        <input type="text" inputmode="numeric" x-model.number="drug.dosePerTime"
                                @input="recalcDrug(idx)"
                                @keydown.enter.prevent="focusCell(idx, 'timesPerDay')"
                                @keydown.right="onCellNav(idx, 'dosePerTime', 'right', $event)"
                                @keydown.left="onCellNav(idx, 'dosePerTime', 'left', $event)"
                                @focus="$event.target.select()"
                                :data-row="idx" data-field="dosePerTime"
-                               placeholder="-"
+                               placeholder="-" autocomplete="off"
                                class="drug-input">
                     </div>
                     <div class="drug-cell">
-                        <input type="number" x-model.number="drug.timesPerDay" min="0" step="1"
+                        <input type="text" inputmode="numeric" x-model.number="drug.timesPerDay"
                                @input="recalcDrug(idx)"
                                @keydown.enter.prevent="focusCell(idx, 'totalDays')"
                                @keydown.right="onCellNav(idx, 'timesPerDay', 'right', $event)"
                                @keydown.left="onCellNav(idx, 'timesPerDay', 'left', $event)"
                                @focus="$event.target.select()"
                                :data-row="idx" data-field="timesPerDay"
-                               placeholder="-"
+                               placeholder="-" autocomplete="off"
                                class="drug-input">
                     </div>
                     <div class="drug-cell">
-                        <input type="number" x-model.number="drug.totalDays" min="0" step="1"
+                        <input type="text" inputmode="numeric" x-model.number="drug.totalDays"
                                @input="recalcDrug(idx)"
                                @keydown.enter.prevent="onLastFieldEnter(idx)"
                                @keydown.right="onCellNav(idx, 'totalDays', 'right', $event)"
                                @keydown.left="onCellNav(idx, 'totalDays', 'left', $event)"
                                @focus="$event.target.select()"
                                :data-row="idx" data-field="totalDays"
-                               placeholder="-"
+                               placeholder="-" autocomplete="off"
                                class="drug-input">
                     </div>
                     <div class="drug-cell" x-text="drug.totalQty || ''"></div>
                     <div class="drug-cell" style="padding:0">
                         <template x-if="drug.coverageType === 'nonCovered' && drug.name">
-                            <input type="number" x-model="drug.unitPrice"
+                            <input type="text" inputmode="numeric" x-model="drug.unitPrice"
                                    @change="onNonCoveredPriceChange(idx)"
                                    @focus="$event.target.select()"
-                                   class="drug-input" style="color:#b45309;font-weight:600" min="0">
+                                   autocomplete="off"
+                                   class="drug-input" style="color:#b45309;font-weight:600">
                         </template>
                         <template x-if="!(drug.coverageType === 'nonCovered' && drug.name)">
                             <span x-text="drug.unitPrice ? Number(drug.unitPrice).toLocaleString() : ''"></span>
