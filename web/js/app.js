@@ -501,13 +501,29 @@ function prescriptionApp() {
         selectDrug(idx, drug) {
             this.drugs[idx].name = drug.name;
             this.drugs[idx].code = drug.code;
-            this.drugs[idx].unitPrice = drug.price;
             this.drugs[idx].coverageType = (drug.note === '비보험') ? 'nonCovered' : 'insured';
+            // 비급여 약품은 localStorage에 저장된 가격 우선 적용
+            if (drug.note === '비보험') {
+                const saved = localStorage.getItem('nonCoveredPrice_' + drug.code);
+                this.drugs[idx].unitPrice = saved ? Number(saved) : drug.price;
+            } else {
+                this.drugs[idx].unitPrice = drug.price;
+            }
             this.drugs[idx].showSuggestions = false;
             this.drugs[idx].suggestions = [];
             this.recalcDrug(idx);
             this.autoDetectOptions();
             this.focusCell(idx, 'dosePerTime');
+        },
+
+        onNonCoveredPriceChange(idx) {
+            const d = this.drugs[idx];
+            const price = parseInt(d.unitPrice) || 0;
+            d.unitPrice = price;
+            if (d.code) {
+                localStorage.setItem('nonCoveredPrice_' + d.code, price);
+            }
+            this.recalcDrug(idx);
         },
 
         recalcDrug(idx) {
