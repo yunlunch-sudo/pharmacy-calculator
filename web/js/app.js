@@ -463,9 +463,23 @@ function prescriptionApp() {
         },
 
         // 약품 관련
-        onDrugSearch(idx, value) {
+        onDrugSearch(idx, value, event) {
             const prev = this.drugs[idx].name;
-            this.drugs[idx].name = value;
+
+            // 영타 → 한타 자동 변환
+            if (shouldConvertToKor(value)) {
+                const converted = engToKor(value);
+                value = converted;
+                this.drugs[idx].name = converted;
+                // input 요소의 값도 교체
+                if (event && event.target) {
+                    event.target.value = converted;
+                }
+            } else {
+                this.drugs[idx].name = value;
+            }
+            this.drugs[idx].imeWarn = false;
+
             if (value.length >= 1) {
                 this.drugs[idx].suggestions = searchDrugs(value);
                 this.drugs[idx].showSuggestions = true;

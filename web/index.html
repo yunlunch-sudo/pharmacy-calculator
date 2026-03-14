@@ -8,6 +8,7 @@
     <script src="js/fee_table.js"></script>
     <script src="js/calculator.js"></script>
     <script src="js/drug_db.js"></script>
+    <script src="js/eng2kor.js"></script>
     <script src="js/counseling_db.js"></script>
     <link rel="stylesheet" href="css/prescription.css">
 </head>
@@ -144,7 +145,7 @@
                         <div style="display:flex;align-items:center;gap:0.125rem">
                             <input type="text"
                                    :value="drug.name"
-                                   @input="onDrugSearch(idx, $event.target.value)"
+                                   @input="onDrugSearch(idx, $event.target.value, $event)"
                                    @focus="onDrugFocus(idx)"
                                    @blur="setTimeout(() => closeSuggestions(idx), 200)"
                                    @keydown.down.prevent="moveSuggestion(idx, 1)"
@@ -153,7 +154,7 @@
                                    @keydown.escape="closeSuggestions(idx)"
                                    @keydown.right="onCellNav(idx, 'name', 'right', $event)"
                                    :data-row="idx" data-field="name"
-                                   placeholder="약품명 검색..."
+                                   placeholder="약품명 검색..." lang="ko"
                                    class="drug-input drug-input-name" style="flex:1;min-width:0">
                             <span x-show="drug.name"
                                   @click="cycleCoverage(idx)"
