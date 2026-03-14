@@ -87,6 +87,7 @@ function createEmptyDrug() {
         suggestions: [],
         showSuggestions: false,
         suggestionIdx: -1,
+        _rawEng: '',
     };
 }
 
@@ -462,33 +463,57 @@ function prescriptionApp() {
             this.recalcAll();
         },
 
-        // 약품 관련
-        onDrugSearch(idx, value, event) {
-            const prev = this.drugs[idx].name;
+        // 약품 관련 — 영타→한타 자동 변환 (keydown에서 영문 가로채기)
+        onDrugKeydown(idx, event) {
+            const drug = this.drugs[idx];
+            if (!drug._rawEng) drug._rawEng = '';
+            const key = event.key;
 
-            // 영타 → 한타 자동 변환
-            if (shouldConvertToKor(value)) {
-                const converted = engToKor(value);
-                value = converted;
-                this.drugs[idx].name = converted;
-                // input 요소의 값도 교체
-                if (event && event.target) {
-                    event.target.value = converted;
-                }
-            } else {
-                this.drugs[idx].name = value;
+            // 영문 알파벳이고 한글 키보드 매핑에 있는 키
+            if (key.length === 1 && /[a-zA-Z]/.test(key) && ENG_KEY_MAP[key]) {
+                event.preventDefault();
+                drug._rawEng += key;
+                const converted = engToKor(drug._rawEng);
+                drug.name = converted;
+                event.target.value = converted;
+                this._updateDrugSuggestions(idx, converted);
+                return;
             }
-            this.drugs[idx].imeWarn = false;
 
+            // Backspace: 영문 버퍼에서 한 글자 제거 후 재변환
+            if (key === 'Backspace' && drug._rawEng.length > 0) {
+                event.preventDefault();
+                drug._rawEng = drug._rawEng.slice(0, -1);
+                const converted = drug._rawEng ? engToKor(drug._rawEng) : '';
+                drug.name = converted;
+                event.target.value = converted;
+                this._updateDrugSuggestions(idx, converted);
+                return;
+            }
+        },
+
+        // 한글 IME 또는 숫자 직접 입력 시 (keydown에서 가로채지 않은 입력)
+        onDrugInput(idx, event) {
+            const value = event.target.value;
+            const drug = this.drugs[idx];
+            const prev = drug.name;
+
+            // 한글 IME나 숫자 등으로 직접 입력된 경우 영문 버퍼 초기화
+            drug._rawEng = '';
+            drug.name = value;
+            this._updateDrugSuggestions(idx, value);
+            if (!value && prev) this.autoDetectOptions();
+        },
+
+        _updateDrugSuggestions(idx, value) {
+            const drug = this.drugs[idx];
             if (value.length >= 1) {
-                this.drugs[idx].suggestions = searchDrugs(value);
-                this.drugs[idx].showSuggestions = true;
-                this.drugs[idx].suggestionIdx = -1;
+                drug.suggestions = searchDrugs(value);
+                drug.showSuggestions = true;
+                drug.suggestionIdx = -1;
             } else {
-                this.drugs[idx].suggestions = [];
-                this.drugs[idx].showSuggestions = false;
-                // 약품명이 지워진 경우 옵션 재감지
-                if (prev) this.autoDetectOptions();
+                drug.suggestions = [];
+                drug.showSuggestions = false;
             }
         },
 
@@ -523,6 +548,7 @@ function prescriptionApp() {
         selectDrug(idx, drug) {
             this.drugs[idx].name = drug.name;
             this.drugs[idx].code = drug.code;
+            this.drugs[idx]._rawEng = '';
             // localStorage에 저장된 coverageType 우선, 없으면 DB 기본값
             const savedCoverage = localStorage.getItem('drugCoverage_' + drug.code);
             this.drugs[idx].coverageType = savedCoverage || ((drug.note === '비보험') ? 'nonCovered' : 'insured');

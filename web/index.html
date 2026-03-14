@@ -145,7 +145,8 @@
                         <div style="display:flex;align-items:center;gap:0.125rem">
                             <input type="text"
                                    :value="drug.name"
-                                   @input="onDrugSearch(idx, $event.target.value, $event)"
+                                   @input="onDrugInput(idx, $event)"
+                                   @keydown="onDrugKeydown(idx, $event)"
                                    @focus="onDrugFocus(idx)"
                                    @blur="setTimeout(() => closeSuggestions(idx), 200)"
                                    @keydown.down.prevent="moveSuggestion(idx, 1)"
