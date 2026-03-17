@@ -280,6 +280,15 @@
 | 티눈액 | 5,000원 | |
 | 콘투라벡스겔 | 8,000원 | |
 
+#### 영타→한타 자동 변환 (Windows IME 대응)
+- Windows에서 영문 입력 상태로 약품명을 타이핑해도 자동으로 한글로 변환
+- `@keydown`에서 영문 키(a-z, A-Z)를 가로채어 `_rawEng` 버퍼에 축적
+- 매 키 입력마다 `_rawEng` 전체를 `engToKor()`로 한글 변환하여 표시 및 검색
+- Backspace: `_rawEng`에서 한 글자 제거 후 재변환
+- 한글 IME로 직접 입력 시: `_rawEng` 초기화, 기존 동작 유지
+- 약품 선택(selectDrug) 시: `_rawEng` 초기화
+- 핵심 파일: `web/js/eng2kor.js` (QWERTY→두벌식 자모 조합 엔진)
+
 #### 가루약가산 자동 해제 조건
 - 만6세 미만(age < 6) + 조제일수 1~2일 → 가루약가산 자동 체크 해제
 - 이유: 1~2일분에서는 소아가산(+6.67)이 가루약가산(Da)보다 유리하므로 Da 미적용
@@ -289,4 +298,5 @@
 - `src/dispensing_fee/calculator.py`: 처방조제료 계산기
 - `data/약제급여목록및급여상한금액표_(2026.3.1.)_공개용 1부.xlsx`: 약가 기준 데이터
 - `web/js/drug_db.js`: 약품 DB (약가 포함, 308개)
+- `web/js/eng2kor.js`: 영타→한타 자동 변환 엔진 (QWERTY→두벌식)
 - **GitHub Pages**: https://yunlunch-sudo.github.io/pharmacy-calculator/
