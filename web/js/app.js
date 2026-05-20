@@ -84,6 +84,7 @@ function createEmptyDrug() {
         totalQty: 0,
         amount: 0,
         coverageType: 'insured', // insured: 보험, fullPay: 100/100, nonCovered: 비급여
+        isIncentive: false, // 저가인센티브(저가약): 본인부담 별도 100원 올림
         suggestions: [],
         showSuggestions: false,
         suggestionIdx: -1,
@@ -290,12 +291,37 @@ function prescriptionApp() {
         },
 
         get drugTotal() {
-            return this.drugs.reduce((sum, d) => sum + (d.amount || 0), 0);
+            // 급여 약가합계는 10원 절사 (약국 프로그램 청구 기준: 원단위 버림)
+            return this.insuredDrugTotalTrunc + this.fullPayDrugTotal + this.nonCoveredDrugTotal;
         },
 
         // 보험 유형별 약품비 분리
         get insuredDrugTotal() {
             return this.drugs.filter(d => d.coverageType === 'insured').reduce((s, d) => s + (d.amount || 0), 0);
+        },
+        // 저가인센티브 약가 합 (본인부담 별도 100원 올림 대상)
+        get insuredDrugIncentiveTotal() {
+            return this.drugs.filter(d => d.coverageType === 'insured' && d.isIncentive)
+                             .reduce((s, d) => s + (d.amount || 0), 0);
+        },
+        // 일반(인센티브 제외) 보험약가
+        get insuredDrugMainTotal() {
+            return this.insuredDrugTotal - this.insuredDrugIncentiveTotal;
+        },
+        // 급여 약가합계 10원 절사 (청구 기준, 인센티브 포함)
+        get insuredDrugTotalTrunc() {
+            return Math.floor(this.insuredDrugTotal / 10) * 10;
+        },
+        // 본인부담 일반약가분: 투약일수가 같은 보험약끼리 묶은 합 목록 (그룹별 100원 올림용)
+        get insuredMainGroupSums() {
+            const groups = {};
+            for (const d of this.drugs) {
+                if (d.coverageType === 'insured' && !d.isIncentive && (d.name || d.amount)) {
+                    const k = d.totalDays || 0;
+                    groups[k] = (groups[k] || 0) + (d.amount || 0);
+                }
+            }
+            return Object.values(groups);
         },
         get fullPayDrugTotal() {
             return this.drugs.filter(d => d.coverageType === 'fullPay').reduce((s, d) => s + (d.amount || 0), 0);
@@ -314,7 +340,7 @@ function prescriptionApp() {
             if (this.noDispensingFee) return 0;
             const hasInsuredDrugs = this.drugs.some(d => d.name && (d.coverageType === 'insured' || d.coverageType === 'fullPay'));
             if (hasInsuredDrugs) {
-                return this.insuredDrugTotal + this.calcResult.totalFee;
+                return this.insuredDrugTotalTrunc + this.calcResult.totalFee;
             }
             // 비급여만 있거나 약품 없음 → 조제료도 비보험
             return 0;
@@ -354,29 +380,43 @@ function prescriptionApp() {
                 insuredCopay = insured > 0 ? 500 : 0;
                 desc = '의료급여 2종 → 500원';
             } else {
-                // 건강보험: 보험 적용 총액(조제료+보험약품비) 기준으로 copay% 적용, 비급여는 extraPay로 별도 100% 부담
-                const total = insured; // insuredTotal (보험약 + 조제료)
+                // 건강보험: 본인부담률 적용. 약국 프로그램 방식 →
+                // 조제료분과 약품비분(10원 절사)을 각각 100원 올림 후 합산 (구간 판정은 총액 기준)
+                const total = insured; // insuredTotal (보험약 절사 + 조제료)
                 const age = this.age;
+                const feeForCopay = this.noDispensingFee ? 0 : this.calcResult.totalFee;
+                const feeInsured = (this.insuredDrugTotal > 0 || fullPay > 0) ? feeForCopay : 0;
+                const mainGroups = this.insuredMainGroupSums;           // 일반약가분: 투약일수 그룹별
+                const incentive = this.insuredDrugIncentiveTotal;       // 저가인센티브분(별도)
+                // 끝수처리(100원) 실측 확정: 6세미만(조산아 제외)은 전부 올림 /
+                // 그 외(성인·65세·조산아)는 조제료분 내림(floor), 약가·인센분 반올림
+                const isCeil = (age !== null && age < 6 && !this.isPremature);
+                const rFee = isCeil ? (x => Math.ceil(x / 100) * 100) : (x => Math.floor(x / 100) * 100);
+                const rDrug = isCeil ? (x => Math.ceil(x / 100) * 100) : (x => Math.round(x / 100) * 100);
+                const pct = (rate) => rFee(feeInsured * rate)
+                                    + mainGroups.reduce((s, g) => s + rDrug(g * rate), 0)
+                                    + rDrug(incentive * rate);
 
                 if (this.isPremature) {
-                    insuredCopay = Math.ceil(total * 0.05 / 100) * 100;
+                    // 조산아(F016) 5%: 항목별 반올림 (성인과 동일 끝수처리)
+                    insuredCopay = pct(0.05);
                     desc = '조산아 F016 → 5%';
                 } else if (age !== null && age >= 65) {
                     if (total <= 10000) {
                         insuredCopay = total > 0 ? 1000 : 0;
                         desc = '65세이상 / 1만원이하 → 정액';
                     } else if (total <= 12000) {
-                        insuredCopay = Math.ceil(total * 0.2 / 100) * 100;
+                        insuredCopay = pct(0.2);
                         desc = '65세이상 / 1~1.2만원 → 20%';
                     } else {
-                        insuredCopay = Math.ceil(total * 0.3 / 100) * 100;
+                        insuredCopay = pct(0.3);
                         desc = '65세이상 / 1.2만원초과 → 30%';
                     }
                 } else if (age !== null && age < 6) {
-                    insuredCopay = Math.ceil(total * 0.2 / 100) * 100;
+                    insuredCopay = pct(0.2);
                     desc = '6세미만 → 20%';
                 } else {
-                    insuredCopay = Math.ceil(total * 0.3 / 100) * 100;
+                    insuredCopay = pct(0.3);
                     desc = '일반 → 30%';
                 }
             }
@@ -460,6 +500,15 @@ function prescriptionApp() {
             this.drugs[idx].coverageType = next;
             const code = this.drugs[idx].code;
             if (code) localStorage.setItem('drugCoverage_' + code, next);
+            this.recalcAll();
+        },
+
+        // 저가인센티브(저가약) 토글 — 본인부담 별도 100원 올림. 선택값 localStorage 저장
+        toggleIncentive(idx) {
+            const next = !this.drugs[idx].isIncentive;
+            this.drugs[idx].isIncentive = next;
+            const code = this.drugs[idx].code;
+            if (code) localStorage.setItem('drugIncentive_' + code, next ? '1' : '0');
             this.recalcAll();
         },
 
@@ -552,6 +601,8 @@ function prescriptionApp() {
             // localStorage에 저장된 coverageType 우선, 없으면 DB 기본값
             const savedCoverage = localStorage.getItem('drugCoverage_' + drug.code);
             this.drugs[idx].coverageType = savedCoverage || ((drug.note === '비보험') ? 'nonCovered' : 'insured');
+            // 저가인센티브 저장값 로드
+            this.drugs[idx].isIncentive = localStorage.getItem('drugIncentive_' + drug.code) === '1';
             // nonCovered(비급여)인 경우 localStorage 저장 가격 우선 적용
             const isNonCovered = this.drugs[idx].coverageType === 'nonCovered';
             if (isNonCovered) {

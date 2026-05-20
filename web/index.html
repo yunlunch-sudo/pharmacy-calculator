@@ -163,6 +163,12 @@
                                   :class="'coverage-' + drug.coverageType"
                                   x-text="drug.coverageType === 'insured' ? '보험' : drug.coverageType === 'fullPay' ? '100/100' : '비급여'"
                                   title="클릭하여 전환: 보험 → 100/100 → 비급여"></span>
+                            <span x-show="drug.name && drug.coverageType === 'insured'"
+                                  @click="toggleIncentive(idx)"
+                                  class="coverage-tag"
+                                  :style="drug.isIncentive ? 'background:#f59e0b;color:#fff' : 'background:#e5e7eb;color:#9ca3af'"
+                                  x-text="'인센'"
+                                  title="저가인센티브(저가약) 토글 — 본인부담 별도 100원 올림"></span>
                         </div>
                         <!-- 자동완성 드롭다운 -->
                         <div x-show="drug.showSuggestions && drug.suggestions.length > 0" class="suggestions">
