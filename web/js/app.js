@@ -5,6 +5,15 @@
 // 약품 DB (drug_db.js에서 로드, 오프라인 지원)
 let DRUG_DB = (typeof DRUG_DB_DATA !== 'undefined') ? DRUG_DB_DATA : [];
 
+// 📷 처방전 OCR 백엔드 주소 (Render 배포 후 여기에 입력).
+// 예: 'https://prescription-ocr.onrender.com'
+const OCR_API_URL = 'https://prescription-ocr.onrender.com';
+
+// 달빛 협약 병원 — 베스트아이들병원(요양기관기호 31211283)만 달빛 적용.
+// 다른 병원 처방전은 달빛 무조건 미적용.
+const MOONLIGHT_HOSPITAL_CODES = ['31211283'];
+const MOONLIGHT_HOSPITAL_NAMES = ['베스트아이들'];
+
 // 초성 매핑
 const CHOSUNG = [
     'ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ',
@@ -174,6 +183,14 @@ function prescriptionApp() {
         // UI
         showDetail: false,
 
+        // OCR (처방전 사진 입력)
+        ocrLoading: false,
+        ocrStatus: '',
+
+        // 발행기관 (달빛 협약 판별용)
+        issuingHospital: '',
+        issuingHospitalCode: '',
+
         // 계산 결과
         calcResult: { items: [], totalFee: 0, appliedConditions: [] },
 
@@ -226,6 +243,14 @@ function prescriptionApp() {
             const dm = today.getMonth() - m;
             if (dm < 0 || (dm === 0 && today.getDate() < d)) a--;
             this.age = Math.max(0, a);
+        },
+
+        // 달빛 협약 병원 여부 (베스트아이들병원만). 발행기관 정보 없으면(수동입력) 사용자 판단 허용.
+        get moonlightAllowed() {
+            if (!this.issuingHospital && !this.issuingHospitalCode) return true;
+            if (MOONLIGHT_HOSPITAL_CODES.includes(this.issuingHospitalCode)) return true;
+            if (this.issuingHospital && MOONLIGHT_HOSPITAL_NAMES.some(n => this.issuingHospital.indexOf(n) >= 0)) return true;
+            return false;
         },
 
         // 자동 모드 표시용 computed
@@ -618,6 +643,91 @@ function prescriptionApp() {
             this.focusCell(idx, 'dosePerTime');
         },
 
+        // 📷 처방전 사진 → OCR 백엔드 호출 → 약품/나이 자동 채움
+        async runOcr(event) {
+            const input = event.target;
+            const file = input.files && input.files[0];
+            if (!file) return;
+            if (!OCR_API_URL) {
+                this.ocrStatus = '인식 실패: OCR 서버 주소(OCR_API_URL)가 설정되지 않았습니다.';
+                input.value = '';
+                return;
+            }
+            this.ocrLoading = true;
+            this.ocrStatus = '처방전 분석 중... (5~15초)';
+            try {
+                const fd = new FormData();
+                fd.append('file', file);
+                const res = await fetch(OCR_API_URL.replace(/\/$/, '') + '/api/ocr-prescription', {
+                    method: 'POST', body: fd
+                });
+                if (!res.ok) {
+                    let detail = res.status;
+                    try { detail = (await res.json()).detail || detail; } catch (e) {}
+                    throw new Error(detail);
+                }
+                const data = await res.json();
+                this.applyOcr(data);
+                const n = (data.drugs || []).length;
+                const unmatched = this.drugs.filter(d => d.name && !d.unitPrice).length;
+                this.ocrStatus = `✓ ${n}개 약품 인식${unmatched ? ` · 약가 미확인 ${unmatched}개(직접 확인)` : ''} — 가산조건 확인 후 계산하세요`;
+            } catch (err) {
+                this.ocrStatus = '인식 실패: ' + (err.message || err);
+            } finally {
+                this.ocrLoading = false;
+                input.value = '';
+            }
+        },
+
+        // OCR 결과(JSON)를 폼에 반영
+        applyOcr(data) {
+            // 나이 (주민번호 앞 6자리)
+            if (data.birth_6 && /^\d{6}$/.test(data.birth_6)) {
+                this.birthDate = data.birth_6;
+                this.calculateAge();
+            }
+            // 발행기관 → 달빛 협약 판별 (베스트아이들병원만 달빛, 그 외 강제 OFF)
+            this.issuingHospital = (data.hospital_name || '').trim();
+            this.issuingHospitalCode = (data.hospital_code || '').trim();
+            if (this.issuingHospital || this.issuingHospitalCode) {
+                this.isMoonlight = this.moonlightAllowed;
+            }
+            // 약품
+            const rows = [];
+            for (const d of (data.drugs || [])) {
+                const row = createEmptyDrug();
+                row.name = (d.name || '').trim();
+                row.code = (d.code || '').trim();
+                row.dosePerTime = d.dose_per_time || null;
+                row.timesPerDay = d.times_per_day || null;
+                row.totalDays = d.total_days || null;
+                // 약품DB 매칭: 코드 → 정확한 이름 → 부분일치
+                let db = null;
+                if (row.code) db = DRUG_DB.find(x => x.code === row.code);
+                if (!db && row.name) {
+                    db = DRUG_DB.find(x => x.name === row.name)
+                       || DRUG_DB.find(x => x.name.includes(row.name) || row.name.includes(x.name));
+                }
+                if (db) {
+                    row.code = db.code;
+                    const sc = localStorage.getItem('drugCoverage_' + db.code);
+                    row.coverageType = sc || ((db.note === '비보험') ? 'nonCovered' : 'insured');
+                    row.isIncentive = localStorage.getItem('drugIncentive_' + db.code) === '1';
+                    if (row.coverageType === 'nonCovered') {
+                        const saved = localStorage.getItem('nonCoveredPrice_' + db.code);
+                        row.unitPrice = saved ? Number(saved) : db.price;
+                    } else {
+                        row.unitPrice = db.price;
+                    }
+                }
+                rows.push(row);
+            }
+            if (rows.length) this.drugs = rows;
+            this.drugs.forEach((_, i) => this.recalcDrug(i));
+            this.autoDetectOptions();
+            this.recalcAll();
+        },
+
         onNonCoveredPriceChange(idx) {
             const d = this.drugs[idx];
             const price = parseInt(d.unitPrice) || 0;
@@ -824,6 +934,9 @@ function prescriptionApp() {
         resetAll() {
             this.birthDate = '';
             this.age = null;
+            this.ocrStatus = '';
+            this.issuingHospital = '';
+            this.issuingHospitalCode = '';
             this.isPremature = false;
             this.insuranceType = 'health';
             this.isMoonlight = false;

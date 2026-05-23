@@ -108,8 +108,8 @@
                 </template>
 
                 <div class="checkbox-row">
-                    <label class="checkbox-label">
-                        <input type="checkbox" x-model="isMoonlight">
+                    <label class="checkbox-label" :style="!moonlightAllowed ? 'opacity:0.45' : ''">
+                        <input type="checkbox" x-model="isMoonlight" :disabled="!moonlightAllowed">
                         <span>달빛약국</span>
                     </label>
                     <label class="checkbox-label">
@@ -117,12 +117,29 @@
                         <span>비대면</span>
                     </label>
                 </div>
+                <!-- 발행기관 / 달빛 협약 상태 -->
+                <div x-show="issuingHospital || issuingHospitalCode" style="font-size:0.75rem;padding:0 10px 6px"
+                     :style="moonlightAllowed ? 'color:#1a7a3a' : 'color:#b91c1c'">
+                    🏥 <span x-text="issuingHospital || ('기관 ' + issuingHospitalCode)"></span>
+                    — <span x-text="moonlightAllowed ? '달빛 협약 ✓' : '달빛 협약 없음 → 달빛 미적용'"></span>
+                </div>
             </div>
         </div>
 
         <!-- 처방 내역 -->
         <div class="border-b">
             <div class="section-header border-b">처 방 내 역</div>
+
+            <!-- 📷 처방전 사진으로 입력 -->
+            <div style="padding:8px 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <label class="btn-add" style="cursor:pointer;background:#1d6fad;color:#fff;border:none">
+                    📷 처방전 촬영/사진
+                    <input type="file" accept="image/*" capture="environment"
+                           @change="runOcr($event)" :disabled="ocrLoading" style="display:none">
+                </label>
+                <span x-show="ocrStatus" x-text="ocrStatus"
+                      :style="ocrStatus.startsWith('인식 실패') ? 'color:#b91c1c;font-size:0.8rem' : 'color:#1a7a3a;font-size:0.8rem'"></span>
+            </div>
 
             <!-- 테이블 헤더 -->
             <div class="drug-header">

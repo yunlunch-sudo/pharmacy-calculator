@@ -334,3 +334,20 @@
 - `web/js/drug_db.js`: 약품 DB (약가 포함, 308개)
 - `web/js/eng2kor.js`: 영타→한타 자동 변환 엔진 (QWERTY→두벌식)
 - **GitHub Pages**: https://yunlunch-sudo.github.io/pharmacy-calculator/
+
+## 13. 처방전 사진 OCR (모바일)
+
+종이 처방전을 휴대폰으로 찍으면 약품·나이·발행기관을 자동 추출해 계산기에 채운다.
+
+### 구조
+- **백엔드** `ocr-backend/` (FastAPI, Render 배포): `POST /api/ocr-prescription` — 이미지 → Claude 비전(Opus 4.7, `messages.parse` 구조화 출력) → `{drugs[], birth_6, hospital_name, hospital_code}` JSON. API키는 `ANTHROPIC_API_KEY`(서버측). 이미지 장변 2000px 자동 축소, 이미지·결과 미저장.
+- **프론트** `web/`: 📷 버튼 → `OCR_API_URL` 호출 → `applyOcr()`가 약품행 채움(약품DB 코드/이름 매칭으로 약가 조회) + 나이(생년월일) + 발행기관 설정. PWA(홈화면 추가)로 앱처럼 사용.
+
+### 달빛 협약 병원 규칙
+- **베스트아이들병원(요양기관기호 31211283)** 처방전만 달빛 적용. 그 외 병원은 달빛 강제 미적용(체크박스 잠금).
+- 판별: `MOONLIGHT_HOSPITAL_CODES`(코드) 또는 `MOONLIGHT_HOSPITAL_NAMES`(이름 "베스트아이들" 포함). 협약 병원 추가 시 `web/js/app.js`의 두 상수만 수정.
+- 발행기관 정보가 없으면(수동 입력) 사용자 판단 허용.
+
+### 한계
+- OCR 100% 아님 → 촬영 후 약품명·약가·가산조건 **확인/수정 단계 필수**. 처방전엔 조제 가산조건(시각·요일·가루약)이 없어 앱에서 설정.
+- 6세미만 본인부담 끝수는 ±0~200원 오차 가능(실제 청구는 약국 프로그램 기준).
