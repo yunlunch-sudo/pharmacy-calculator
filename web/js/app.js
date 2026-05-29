@@ -5,9 +5,8 @@
 // 약품 DB (drug_db.js에서 로드, 오프라인 지원)
 let DRUG_DB = (typeof DRUG_DB_DATA !== 'undefined') ? DRUG_DB_DATA : [];
 
-// 📷 처방전 OCR 백엔드 주소 (Render 배포 후 여기에 입력).
-// 예: 'https://prescription-ocr.onrender.com'
-const OCR_API_URL = 'https://prescription-ocr.onrender.com';
+// 📷 처방전 OCR 백엔드 주소 (Render 배포)
+const OCR_API_URL = 'https://prescription-ocr-uj3z.onrender.com';
 
 // 달빛 협약 병원 — 베스트아이들병원(요양기관기호 31211283)만 달빛 적용.
 // 다른 병원 처방전은 달빛 무조건 미적용.
