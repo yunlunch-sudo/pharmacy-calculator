@@ -13,6 +13,43 @@ const OCR_API_URL = 'https://prescription-ocr-uj3z.onrender.com';
 const MOONLIGHT_HOSPITAL_CODES = ['31211283'];
 const MOONLIGHT_HOSPITAL_NAMES = ['베스트아이들'];
 
+// 약품코드를 9자리로 정규화 (DB에 앞 0 빠진 8자리 코드 호환)
+function normCode(c) {
+    const s = String(c || '').replace(/\D/g, '');
+    if (!s) return '';
+    return s.length < 9 ? s.padStart(9, '0') : s.slice(-9);
+}
+
+// 내 약국 개인 약품DB (localStorage) — 신규/누락 약품을 사용자가 한 번 입력하면 누적 학습
+function loadLocalDrugDb() {
+    try { return JSON.parse(localStorage.getItem('localDrugDb') || '{}'); }
+    catch (e) { return {}; }
+}
+function saveLocalDrugDb(db) {
+    try { localStorage.setItem('localDrugDb', JSON.stringify(db)); } catch (e) {}
+}
+function rememberDrug(row) {
+    const code = normCode(row.code);
+    if (!code || !row.name) return;
+    const db = loadLocalDrugDb();
+    const prev = db[code] || {};
+    db[code] = {
+        code: code,
+        name: row.name,
+        price: Number(row.unitPrice) || prev.price || 0,
+        coverageType: row.coverageType || prev.coverageType || 'insured',
+        isIncentive: !!row.isIncentive,
+        updatedAt: Date.now()
+    };
+    saveLocalDrugDb(db);
+}
+// 키 호환 lookup: 정규화 코드 → 원본 코드 순으로 fallback
+function lsGet(prefix, code) {
+    if (!code) return null;
+    const n = normCode(code);
+    return localStorage.getItem(prefix + n) || localStorage.getItem(prefix + code);
+}
+
 // 초성 매핑
 const CHOSUNG = [
     'ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ',
@@ -40,17 +77,25 @@ function searchDrugs(query) {
     if (!query || query.length < 1) return [];
     const q = query.toLowerCase();
 
+    // 개인DB + 기본DB 합치기 (개인DB 우선, 코드 정규화 기준 중복 제거)
+    const local = Object.values(loadLocalDrugDb()).map(d => ({
+        ...d, _local: true, searchName: (d.name || '').toLowerCase()
+    }));
+    const seen = new Set(local.map(d => normCode(d.code)));
+    const merged = local.concat(DRUG_DB.filter(d => !seen.has(normCode(d.code))));
+
     let results;
     if (/^\d+$/.test(query)) {
-        // 숫자만 입력 → 보험코드 검색
-        results = DRUG_DB.filter(d => d.code.includes(query));
+        // 숫자만 입력 → 보험코드 검색 (정규화 매칭 + 부분일치)
+        const qn = normCode(query);
+        results = merged.filter(d => normCode(d.code) === qn || (d.code || '').includes(query));
     } else if (isAllChosung(query)) {
         // 초성 검색
-        results = DRUG_DB.filter(d => getChosung(d.name).includes(query));
+        results = merged.filter(d => getChosung(d.name).includes(query));
     } else {
-        results = DRUG_DB.filter(d =>
+        results = merged.filter(d =>
             d.name.toLowerCase().includes(q) ||
-            d.searchName.includes(q)
+            (d.searchName || '').toString().includes(q)
         );
     }
     return results.slice(0, 20);
@@ -516,23 +561,25 @@ function prescriptionApp() {
             }
         },
 
-        // 약품 급여 유형 순환 (보험 → 100/100 → 비급여), 선택값 localStorage에 저장
+        // 약품 급여 유형 순환 (보험 → 100/100 → 비급여), 개인DB에도 저장
         cycleCoverage(idx) {
             const order = ['insured', 'fullPay', 'nonCovered'];
             const cur = order.indexOf(this.drugs[idx].coverageType);
             const next = order[(cur + 1) % 3];
             this.drugs[idx].coverageType = next;
-            const code = this.drugs[idx].code;
-            if (code) localStorage.setItem('drugCoverage_' + code, next);
+            const d = this.drugs[idx];
+            if (d.code) localStorage.setItem('drugCoverage_' + normCode(d.code), next);
+            if (d.code && d.name) rememberDrug(d);
             this.recalcAll();
         },
 
-        // 저가인센티브(저가약) 토글 — 본인부담 별도 100원 올림. 선택값 localStorage 저장
+        // 저가인센티브 토글, 개인DB에도 저장
         toggleIncentive(idx) {
             const next = !this.drugs[idx].isIncentive;
             this.drugs[idx].isIncentive = next;
-            const code = this.drugs[idx].code;
-            if (code) localStorage.setItem('drugIncentive_' + code, next ? '1' : '0');
+            const d = this.drugs[idx];
+            if (d.code) localStorage.setItem('drugIncentive_' + normCode(d.code), next ? '1' : '0');
+            if (d.code && d.name) rememberDrug(d);
             this.recalcAll();
         },
 
@@ -622,15 +669,15 @@ function prescriptionApp() {
             this.drugs[idx].name = drug.name;
             this.drugs[idx].code = drug.code;
             this.drugs[idx]._rawEng = '';
-            // localStorage에 저장된 coverageType 우선, 없으면 DB 기본값
-            const savedCoverage = localStorage.getItem('drugCoverage_' + drug.code);
-            this.drugs[idx].coverageType = savedCoverage || ((drug.note === '비보험') ? 'nonCovered' : 'insured');
-            // 저가인센티브 저장값 로드
-            this.drugs[idx].isIncentive = localStorage.getItem('drugIncentive_' + drug.code) === '1';
-            // nonCovered(비급여)인 경우 localStorage 저장 가격 우선 적용
+            // 저장된 coverage 우선 → 개인DB의 coverageType → DB note 기반
+            const savedCoverage = lsGet('drugCoverage_', drug.code);
+            this.drugs[idx].coverageType = savedCoverage
+                || drug.coverageType
+                || ((drug.note === '비보험') ? 'nonCovered' : 'insured');
+            this.drugs[idx].isIncentive = lsGet('drugIncentive_', drug.code) === '1' || !!drug.isIncentive;
             const isNonCovered = this.drugs[idx].coverageType === 'nonCovered';
             if (isNonCovered) {
-                const saved = localStorage.getItem('nonCoveredPrice_' + drug.code);
+                const saved = lsGet('nonCoveredPrice_', drug.code);
                 this.drugs[idx].unitPrice = saved ? Number(saved) : drug.price;
             } else {
                 this.drugs[idx].unitPrice = drug.price;
@@ -692,6 +739,7 @@ function prescriptionApp() {
                 this.isMoonlight = this.moonlightAllowed;
             }
             // 약품
+            const localDb = loadLocalDrugDb();
             const rows = [];
             for (const d of (data.drugs || [])) {
                 const row = createEmptyDrug();
@@ -700,24 +748,48 @@ function prescriptionApp() {
                 row.dosePerTime = d.dose_per_time || null;
                 row.timesPerDay = d.times_per_day || null;
                 row.totalDays = d.total_days || null;
-                // 약품DB 매칭: 코드 → 정확한 이름 → 부분일치
-                let db = null;
-                if (row.code) db = DRUG_DB.find(x => x.code === row.code);
-                if (!db && row.name) {
-                    db = DRUG_DB.find(x => x.name === row.name)
-                       || DRUG_DB.find(x => x.name.includes(row.name) || row.name.includes(x.name));
+                // 매칭 순서: 개인DB(코드) → 기본DB(코드 정규화) → 이름 정확 → 이름 부분
+                const code9 = normCode(row.code);
+                let hit = null;
+                let hitNote = '';
+                if (code9 && localDb[code9]) {
+                    hit = localDb[code9];
                 }
-                if (db) {
-                    row.code = db.code;
-                    const sc = localStorage.getItem('drugCoverage_' + db.code);
-                    row.coverageType = sc || ((db.note === '비보험') ? 'nonCovered' : 'insured');
-                    row.isIncentive = localStorage.getItem('drugIncentive_' + db.code) === '1';
-                    if (row.coverageType === 'nonCovered') {
-                        const saved = localStorage.getItem('nonCoveredPrice_' + db.code);
-                        row.unitPrice = saved ? Number(saved) : db.price;
-                    } else {
-                        row.unitPrice = db.price;
+                if (!hit && code9) {
+                    const dbHit = DRUG_DB.find(x => normCode(x.code) === code9);
+                    if (dbHit) { hit = dbHit; hitNote = dbHit.note || ''; }
+                }
+                if (!hit && row.name) {
+                    const exact = DRUG_DB.find(x => x.name === row.name);
+                    if (exact) { hit = exact; hitNote = exact.note || ''; }
+                    else {
+                        const partial = DRUG_DB.find(x => x.name.includes(row.name) || row.name.includes(x.name));
+                        if (partial) { hit = partial; hitNote = partial.note || ''; }
                     }
+                }
+                if (hit) {
+                    // 코드를 9자리로 통일
+                    row.code = normCode(hit.code) || code9 || row.code;
+                    const sc = lsGet('drugCoverage_', row.code);
+                    row.coverageType = sc
+                        || hit.coverageType
+                        || (hitNote === '비보험' ? 'nonCovered' : 'insured');
+                    row.isIncentive = lsGet('drugIncentive_', row.code) === '1' || !!hit.isIncentive;
+                    if (row.coverageType === 'nonCovered') {
+                        const saved = lsGet('nonCoveredPrice_', row.code);
+                        row.unitPrice = saved ? Number(saved) : (hit.price || 0);
+                    } else {
+                        row.unitPrice = hit.price || 0;
+                    }
+                } else if (code9) {
+                    // DB 미매칭이지만 코드 있음 → 사용자가 이전에 저장한 값 복원
+                    row.code = code9;
+                    const sc = lsGet('drugCoverage_', code9);
+                    if (sc) row.coverageType = sc;
+                    row.isIncentive = lsGet('drugIncentive_', code9) === '1';
+                    const savedPrice = row.coverageType === 'nonCovered'
+                        ? lsGet('nonCoveredPrice_', code9) : null;
+                    if (savedPrice) row.unitPrice = Number(savedPrice);
                 }
                 rows.push(row);
             }
@@ -727,15 +799,22 @@ function prescriptionApp() {
             this.recalcAll();
         },
 
-        onNonCoveredPriceChange(idx) {
+        // 통합 약가 변경 핸들러 — 보험/비급여 구분 없이 변경 시 자동 저장 (개인DB 누적)
+        onPriceChange(idx) {
             const d = this.drugs[idx];
             const price = parseInt(d.unitPrice) || 0;
             d.unitPrice = price;
             if (d.code) {
-                localStorage.setItem('nonCoveredPrice_' + d.code, price);
+                const code9 = normCode(d.code);
+                if (d.coverageType === 'nonCovered') {
+                    localStorage.setItem('nonCoveredPrice_' + code9, price);
+                }
+                if (d.name && price > 0) rememberDrug(d);  // 개인DB에 누적
             }
             this.recalcDrug(idx);
         },
+        // 호환: 기존 onNonCoveredPriceChange 호출 보존
+        onNonCoveredPriceChange(idx) { this.onPriceChange(idx); },
 
         recalcDrug(idx) {
             const d = this.drugs[idx];

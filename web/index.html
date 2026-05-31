@@ -236,15 +236,14 @@
                     </div>
                     <div class="drug-cell" x-text="drug.totalQty || ''"></div>
                     <div class="drug-cell" style="padding:0">
-                        <template x-if="drug.coverageType === 'nonCovered' && drug.name">
+                        <template x-if="drug.name">
                             <input type="text" inputmode="numeric" x-model="drug.unitPrice"
-                                   @change="onNonCoveredPriceChange(idx)"
+                                   @change="onPriceChange(idx)"
                                    @focus="$event.target.select()"
                                    autocomplete="off"
-                                   class="drug-input" style="color:#b45309;font-weight:600">
-                        </template>
-                        <template x-if="!(drug.coverageType === 'nonCovered' && drug.name)">
-                            <span x-text="drug.unitPrice ? Number(drug.unitPrice).toLocaleString() : ''"></span>
+                                   class="drug-input"
+                                   :style="drug.coverageType === 'nonCovered' ? 'color:#b45309;font-weight:600' : ''"
+                                   :placeholder="drug.unitPrice ? '' : '약가 입력'">
                         </template>
                     </div>
                     <div class="drug-cell drug-cell-amount" x-text="drug.amount ? '₩' + drug.amount.toLocaleString() : ''"></div>
