@@ -348,6 +348,17 @@
 - 판별: `MOONLIGHT_HOSPITAL_CODES`(코드) 또는 `MOONLIGHT_HOSPITAL_NAMES`(이름 "베스트아이들" 포함). 협약 병원 추가 시 `web/js/app.js`의 두 상수만 수정.
 - 발행기관 정보가 없으면(수동 입력) 사용자 판단 허용.
 
+### HIRA 약가 자동 조회 (백엔드)
+- 백엔드가 HIRA 약제급여목록표(~22,000개 보험약품)를 `data/drug_db.json`(2.16MB)으로 적재.
+- `GET /api/drug-lookup?codes=A,B,C` → `{drugs: {code: {name, price}}}` (코드는 9자리 정규화).
+- 프론트 `applyOcr`가 기본DB(311) + 개인DB 매칭 후에도 약가 0인 코드들을 **한 번에 묶어** 백엔드 조회 → 결과를 폼에 반영 + 개인DB에 자동 저장(다음부턴 즉시).
+- 비급여 약(엔디멜라정 등)은 HIRA 미등재 → 사용자 1회 입력 → 개인DB로 누적.
+
+### HIRA 약가 월간 갱신
+1. 심평원에서 최신 엑셀 다운로드: https://www.hira.or.kr/bbsDummy.do?pgmid=HIRAA030014050000
+2. `python ocr-backend/scripts/hira_to_json.py <엑셀파일>` 실행 → `data/drug_db.json` 갱신
+3. git commit + push → Render 자동 재배포 (3~5분)
+
 ### 약품 코드 정규화 + 개인DB 누적 학습
 - **코드 정규화**: 모든 약품코드를 9자리로 패딩(`normCode`). DB에 8자리(앞 0 누락)로 저장된 항목과 OCR 9자리 코드 간 매칭 보장 (예: 엔디멜라정 `73200040` ↔ `073200040`).
 - **개인 약품DB**(`localStorage.localDrugDb`): 기본 DRUG_DB(311개)에 없는 약품을 사용자가 한 번 입력하면 `{code, name, price, coverageType, isIncentive}`로 누적 저장. 다음 OCR 시 자동 복원되고, 약품 검색 자동완성에도 `[개인]` 태그로 노출됨.

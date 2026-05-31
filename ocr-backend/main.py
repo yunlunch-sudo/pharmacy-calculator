@@ -7,12 +7,28 @@ ANTHROPIC_API_KEY 환경변수 필요 (Render 대시보드에서 설정).
 """
 import base64
 import io
+import json
 import os
+from functools import lru_cache
+from pathlib import Path
 
 import anthropic
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+# HIRA 약제급여목록표 (보험 적용 약품 ~22,000개)
+# scripts/hira_to_json.py 로 매월 갱신.
+DRUG_DB_PATH = Path(__file__).parent / "data" / "drug_db.json"
+
+
+@lru_cache(maxsize=1)
+def load_drug_db() -> dict:
+    if not DRUG_DB_PATH.exists():
+        return {}
+    with open(DRUG_DB_PATH, encoding="utf-8") as f:
+        rows = json.load(f)
+    return {r["code"]: r for r in rows}
 
 # ─────────────────────────────────────────────────────────────
 # 허용 출처 (GitHub Pages 프론트 + 로컬 테스트). 추가 도메인은 env로.
@@ -111,7 +127,24 @@ def _downscale(data: bytes, content_type: str) -> tuple[bytes, str]:
 
 @app.get("/")
 def health():
-    return {"status": "ok", "model": MODEL}
+    return {"status": "ok", "model": MODEL, "drugs_loaded": len(load_drug_db())}
+
+
+@app.get("/api/drug-lookup")
+def drug_lookup(codes: str = ""):
+    """쉼표 구분 보험코드 목록 → {code: {name, price}} 반환.
+    코드는 9자리로 정규화 후 매칭. HIRA 미등재(비급여)는 결과에서 빠짐.
+    """
+    db = load_drug_db()
+    out: dict = {}
+    for raw in codes.split(","):
+        raw = raw.strip()
+        if not raw or not raw.isdigit():
+            continue
+        c9 = raw.zfill(9)[-9:]
+        if c9 in db:
+            out[c9] = db[c9]
+    return {"drugs": out}
 
 
 @app.post("/api/ocr-prescription")

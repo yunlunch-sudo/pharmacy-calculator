@@ -713,7 +713,7 @@ function prescriptionApp() {
                     throw new Error(detail);
                 }
                 const data = await res.json();
-                this.applyOcr(data);
+                await this.applyOcr(data);
                 const n = (data.drugs || []).length;
                 const unmatched = this.drugs.filter(d => d.name && !d.unitPrice).length;
                 this.ocrStatus = `✓ ${n}개 약품 인식${unmatched ? ` · 약가 미확인 ${unmatched}개(직접 확인)` : ''} — 가산조건 확인 후 계산하세요`;
@@ -725,8 +725,8 @@ function prescriptionApp() {
             }
         },
 
-        // OCR 결과(JSON)를 폼에 반영
-        applyOcr(data) {
+        // OCR 결과(JSON)를 폼에 반영. 미매칭 약품은 백엔드 HIRA DB에서 자동 조회.
+        async applyOcr(data) {
             // 나이 (주민번호 앞 6자리)
             if (data.birth_6 && /^\d{6}$/.test(data.birth_6)) {
                 this.birthDate = data.birth_6;
@@ -794,6 +794,36 @@ function prescriptionApp() {
                 rows.push(row);
             }
             if (rows.length) this.drugs = rows;
+
+            // 미매칭(약가 0 + 코드 있음) → 백엔드 HIRA DB(~22,000개) 조회
+            const missed = this.drugs
+                .filter(d => d.code && !d.unitPrice)
+                .map(d => normCode(d.code))
+                .filter(c => c);
+            if (missed.length && OCR_API_URL) {
+                try {
+                    const url = OCR_API_URL.replace(/\/$/, '') + '/api/drug-lookup?codes=' + encodeURIComponent(missed.join(','));
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const out = await res.json();
+                        const found = out.drugs || {};
+                        this.drugs.forEach(d => {
+                            if (!d.code || d.unitPrice) return;
+                            const c9 = normCode(d.code);
+                            const hira = found[c9];
+                            if (hira) {
+                                d.code = c9;
+                                if (hira.name) d.name = hira.name;
+                                d.unitPrice = hira.price || 0;
+                                rememberDrug(d);  // 개인DB에 누적 (다음부턴 즉시)
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.warn('HIRA 조회 실패:', e);
+                }
+            }
+
             this.drugs.forEach((_, i) => this.recalcDrug(i));
             this.autoDetectOptions();
             this.recalcAll();
