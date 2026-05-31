@@ -103,12 +103,25 @@ function searchDrugs(query) {
 
 // 약품명 기반 자동 분류
 const TOPICAL_KEYWORDS = ['크림', '연고', '겔', '로션', '점안', '점이', '점비', '패치', '좌약', '외용', '스프레이', '안연고', '엘립타'];
-const INJECTION_KEYWORDS = ['주사', '카트리지주', '프리필드'];
+// 자가투여주사 (환자가 직접 놓는 펜·프리필드·카트리지·성장호르몬·인슐린·GLP-1 등) → 외용제와 동일하게 F(16.20점) 적용
+const SELF_INJECTION_KEYWORDS = [
+    '펜주', '프리필드', '카트리지주', '자가투여', '자가주사',
+    '인슐린', '란투스', '노보래피드', '휴물린', '휴마로그', '레버미어', '트레시바', '아피드라', '노보믹스',
+    '유트로핀', '사이젠', '지노트로핀', '옴니트로프', '휴마트로프', '노디트로핀', '그로트로핀', '이지피프티',
+    '빅토자', '트룰리시티', '오젬픽', '위고비', '삭센다', '마운자로',  // GLP-1
+    '엔브렐', '휴미라', '심포니', '코센틱스', '스텔라라', '레미케이드',  // 생물학적제제 자가주사
+];
+// 약국조제 주사제(병원 투여용으로 약국에서 조제) → G(5.45점)
+const INJECTION_KEYWORDS = ['주사'];
 const NARCOTIC_KEYWORDS = ['졸피뎀', '트라마돌', '코데인', '펜타닐', '모르핀', '디아제팜', '알프라졸람', '로라제팜', '클로나제팜', '페노바르비탈', '미다졸람', '졸피담'];
 
 function classifyDrug(name) {
     if (!name) return 'none';
     const n = name.toLowerCase();
+    // 자가투여주사 먼저 (주사보다 우선) → 외용제로 처리
+    for (const kw of SELF_INJECTION_KEYWORDS) {
+        if (n.includes(kw.toLowerCase())) return 'topical';
+    }
     for (const kw of INJECTION_KEYWORDS) {
         if (n.includes(kw)) return 'injection';
     }

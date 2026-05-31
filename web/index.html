@@ -6,13 +6,13 @@
     <title>처방전 계산기 - 윤약국</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
-    <script defer src="js/alpine.min.js?v=20260531"></script>
-    <script src="js/fee_table.js?v=20260531"></script>
-    <script src="js/calculator.js?v=20260531"></script>
-    <script src="js/drug_db.js?v=20260531"></script>
-    <script src="js/eng2kor.js?v=20260531"></script>
-    <script src="js/counseling_db.js?v=20260531"></script>
-    <link rel="stylesheet" href="css/prescription.css?v=20260531">
+    <script defer src="js/alpine.min.js?v=20260601a"></script>
+    <script src="js/fee_table.js?v=20260601a"></script>
+    <script src="js/calculator.js?v=20260601a"></script>
+    <script src="js/drug_db.js?v=20260601a"></script>
+    <script src="js/eng2kor.js?v=20260601a"></script>
+    <script src="js/counseling_db.js?v=20260601a"></script>
+    <link rel="stylesheet" href="css/prescription.css?v=20260601a">
 </head>
 <body x-data="prescriptionApp()" x-init="init()">
 
@@ -280,15 +280,15 @@
                     <input type="checkbox" x-model="hasTopical">
                     <span>외용제 포함</span>
                 </label>
-                <label class="checkbox-label">
+                <label class="checkbox-label" title="외용제 단일 또는 자가투여주사(펜주·인슐린·성장호르몬 등) — F점수 16.20">
                     <input type="checkbox" x-model="topicalOnly"
                            @change="if(topicalOnly) { hasTopical=false; injectionOnly=false; }">
-                    <span>외용제만</span>
+                    <span>외용제·자가투여주사만</span>
                 </label>
-                <label class="checkbox-label">
+                <label class="checkbox-label" title="약국조제 주사제(병원 투여용) — G점수 5.45. 자가투여주사는 왼쪽 옵션 사용">
                     <input type="checkbox" x-model="injectionOnly"
                            @change="if(injectionOnly) { hasTopical=false; topicalOnly=false; }">
-                    <span>주사제만</span>
+                    <span>주사제만(약국조제)</span>
                 </label>
                 <label class="checkbox-label" style="color:#b45309;font-weight:600">
                     <input type="checkbox" x-model="noDispensingFee">
@@ -402,6 +402,6 @@
     <div class="footer">윤약국 처방전 계산기 | 2026년 수가 기준 | 오프라인 사용 가능</div>
 </div>
 
-<script src="js/app.js?v=20260531"></script>
+<script src="js/app.js?v=20260601a"></script>
 </body>
 </html>
