@@ -628,13 +628,34 @@ function prescriptionApp() {
         _updateDrugSuggestions(idx, value) {
             const drug = this.drugs[idx];
             if (value.length >= 1) {
-                drug.suggestions = searchDrugs(value);
+                drug.suggestions = searchDrugs(value);  // 로컬(311+개인): 즉시
                 drug.showSuggestions = true;
                 drug.suggestionIdx = -1;
+                if (value.length >= 2 && OCR_API_URL) this._backendSearch(idx, value);  // HIRA 22k: 300ms 후
             } else {
                 drug.suggestions = [];
                 drug.showSuggestions = false;
             }
+        },
+
+        _backendSearch(idx, query) {
+            if (this._searchTimer) clearTimeout(this._searchTimer);
+            this._searchTimer = setTimeout(async () => {
+                if (!this.drugs[idx] || this.drugs[idx].name !== query) return;
+                try {
+                    const url = OCR_API_URL.replace(/\/$/, '') + '/api/drug-search?q=' + encodeURIComponent(query) + '&limit=20';
+                    const res = await fetch(url);
+                    if (!res.ok) return;
+                    const out = await res.json();
+                    if (!this.drugs[idx] || this.drugs[idx].name !== query) return;
+                    const local = this.drugs[idx].suggestions || [];
+                    const localCodes = new Set(local.map(d => normCode(d.code)));
+                    const newOnes = (out.drugs || [])
+                        .filter(d => !localCodes.has(normCode(d.code)))
+                        .map(d => ({ code: d.code, name: d.name, price: d.price, note: '', searchName: d.name, _hira: true }));
+                    this.drugs[idx].suggestions = local.concat(newOnes).slice(0, 30);
+                } catch (e) { /* 무시 */ }
+            }, 300);
         },
 
         onDrugFocus(idx) {

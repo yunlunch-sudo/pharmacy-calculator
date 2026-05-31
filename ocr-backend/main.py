@@ -130,6 +130,33 @@ def health():
     return {"status": "ok", "model": MODEL, "drugs_loaded": len(load_drug_db())}
 
 
+@app.get("/api/drug-search")
+def drug_search(q: str = "", limit: int = 20):
+    """이름 또는 코드 부분일치로 HIRA DB 검색.
+    숫자만 → 코드 검색, 그 외 → 이름 검색 (앞부분 일치 우선).
+    """
+    db = load_drug_db()
+    q = q.strip()
+    if not q or len(q) < 2:
+        return {"drugs": []}
+
+    if q.isdigit():
+        matches = [d for code, d in db.items() if q in code][:limit]
+    else:
+        starts: list = []
+        contains: list = []
+        for d in db.values():
+            n = d.get("name", "")
+            if n.startswith(q):
+                starts.append(d)
+            elif q in n:
+                contains.append(d)
+            if len(starts) + len(contains) >= limit * 4:
+                break
+        matches = (starts + contains)[:limit]
+    return {"drugs": matches}
+
+
 @app.get("/api/drug-lookup")
 def drug_lookup(codes: str = ""):
     """쉼표 구분 보험코드 목록 → {code: {name, price}} 반환.
