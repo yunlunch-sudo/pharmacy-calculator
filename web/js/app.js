@@ -102,7 +102,10 @@ function searchDrugs(query) {
 }
 
 // 약품명 기반 자동 분류
-const TOPICAL_KEYWORDS = ['크림', '연고', '겔', '로션', '점안', '점이', '점비', '패치', '좌약', '외용', '스프레이', '안연고', '엘립타'];
+const TOPICAL_KEYWORDS = ['크림', '연고', '로션', '로오션', '점안', '점이', '점비', '패치', '패취', '좌약', '좌제', '외용', '스프레이', '분무', '안연고', '엘립타', '할러', '디스커스', '레스피맷', '핸디헬러', '흡입', '네뷸', '가글', '함수'];
+// '겔'은 외용 겔(페리톡겔 등)과 먹는 제산제(알마겔정·포타겔현탁액·겔포스 등)가 충돌 → 내복약 제형이 없을 때만 외용으로 판정
+const TOPICAL_GEL_KEYWORD = '겔';
+const ORAL_FORM_KEYWORDS = ['정', '캡슐', '시럽', '현탁액', '과립', '세립', '드롭스', '경구', '트로키', '환'];
 // 자가투여주사 (환자가 직접 놓는 펜·프리필드·카트리지·성장호르몬·인슐린·GLP-1 등) → 외용제와 동일하게 F(16.20점) 적용
 const SELF_INJECTION_KEYWORDS = [
     '펜주', '프리필드', '카트리지주', '자가투여', '자가주사',
@@ -118,15 +121,20 @@ const NARCOTIC_KEYWORDS = ['졸피뎀', '트라마돌', '코데인', '펜타닐'
 function classifyDrug(name) {
     if (!name) return 'none';
     const n = name.toLowerCase();
-    // 자가투여주사 먼저 (주사보다 우선) → 외용제로 처리
+    // 자가투여주사 (펜주·인슐린·성장호르몬 등) → 단독 처방일 때만 자가투여주사 조제료(F).
+    // 경구·외용과 함께 처방되면 가산 미적용이므로 'topical'과 구분해 별도 분류한다.
     for (const kw of SELF_INJECTION_KEYWORDS) {
-        if (n.includes(kw.toLowerCase())) return 'topical';
+        if (n.includes(kw.toLowerCase())) return 'self_injection';
     }
     for (const kw of INJECTION_KEYWORDS) {
         if (n.includes(kw)) return 'injection';
     }
     for (const kw of TOPICAL_KEYWORDS) {
         if (n.includes(kw)) return 'topical';
+    }
+    // '겔': 외용 겔(페리톡겔 등)은 외용, 먹는 제산제(알마겔정·포타겔현탁액 등)는 내복으로 분류
+    if (name.includes(TOPICAL_GEL_KEYWORD) && !ORAL_FORM_KEYWORDS.some(f => name.includes(f))) {
+        return 'topical';
     }
     return 'oral';
 }
@@ -1015,26 +1023,32 @@ function prescriptionApp() {
             // 약품 유형별 분류
             const categories = named.map(d => classifyDrug(d.name));
             const hasOral = categories.includes('oral');
-            const hasTopical = categories.includes('topical');
-            const hasInjection = categories.includes('injection');
+            const hasTopical = categories.includes('topical');          // 진짜 외용제(크림·연고·패치·점안 등)
+            const hasInjection = categories.includes('injection');      // 약국조제 주사제
+            const hasSelfInj = categories.includes('self_injection');   // 자가투여주사
 
             if (!hasOral && hasTopical && !hasInjection) {
-                // 외용제만
+                // 외용제만 (자가주사 동반해도 단독 F로 동일 처리)
                 this.topicalOnly = true;
                 this.injectionOnly = false;
                 this.hasTopical = false;
-            } else if (!hasOral && !hasTopical && hasInjection) {
-                // 주사제만
+            } else if (!hasOral && !hasTopical && hasSelfInj && !hasInjection) {
+                // 자가주사제만 단독 → 자가투여주사 조제료(F, 외용단일과 동일)
+                this.topicalOnly = true;
+                this.injectionOnly = false;
+                this.hasTopical = false;
+            } else if (!hasOral && !hasTopical && !hasSelfInj && hasInjection) {
+                // 약국조제 주사제만
                 this.injectionOnly = true;
                 this.topicalOnly = false;
                 this.hasTopical = false;
             } else if (hasOral && hasTopical) {
-                // 내복약 + 외용제
+                // 내복약 + 외용제 → 외용제 포함(H가산). 자가주사가 끼어도 자가주사분은 미가산
                 this.hasTopical = true;
                 this.topicalOnly = false;
                 this.injectionOnly = false;
             } else {
-                // 내복약만 등
+                // 내복약만, 또는 내복약+자가주사(자가주사 미가산) 등
                 this.hasTopical = false;
                 this.topicalOnly = false;
                 this.injectionOnly = false;
