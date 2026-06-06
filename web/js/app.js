@@ -836,8 +836,9 @@ function prescriptionApp() {
                     }
                 }
                 if (hit) {
-                    // 코드를 9자리로 통일
+                    // 코드를 9자리로 통일 + 약품명을 DB의 정확한 명칭으로 교체 (OCR 오타 보정)
                     row.code = normCode(hit.code) || code9 || row.code;
+                    if (hit.name) row.name = hit.name;
                     const sc = lsGet('drugCoverage_', row.code);
                     row.coverageType = sc
                         || hit.coverageType
@@ -1001,8 +1002,20 @@ function prescriptionApp() {
 
             // 카드 HTML 생성
             const cardColors = ['#1d6fad','#2d7f3a','#a3440e','#6b2fa0','#a0522d','#1a7a7a','#8b1a1a'];
+            // 코드로 DB의 정확한 약품명을 찾아 표시 (입력/OCR 오타 보정)
+            const counselLocalDb = loadLocalDrugDb();
+            const resolveDrugName = (drug) => {
+                const c9 = normCode(drug.code || '');
+                if (c9) {
+                    if (counselLocalDb[c9] && counselLocalDb[c9].name) return counselLocalDb[c9].name;
+                    const dbHit = DRUG_DB.find(x => normCode(x.code) === c9);
+                    if (dbHit && dbHit.name) return dbHit.name;
+                }
+                return drug.name;
+            };
             const cards = activeDrugs.map((drug, i) => {
-                const c = findCounseling(drug.name);
+                const displayName = resolveDrugName(drug);
+                const c = findCounseling(displayName) || findCounseling(drug.name);
                 const color = cardColors[i % cardColors.length];
                 const doseDesc = drug.dosePerTime && drug.timesPerDay && drug.totalDays
                     ? `1회 ${drug.dosePerTime}개(정/포/ml)씩, 1일 ${drug.timesPerDay}회, ${drug.totalDays}일분`
@@ -1010,7 +1023,7 @@ function prescriptionApp() {
                 return `
                 <div class="drug-card">
                     <div class="card-header" style="background:${color}">
-                        <span class="card-name">${drug.name.replace(/\(.*?\)/g,'').replace(/_\(.*?\)/g,'').trim()}</span>
+                        <span class="card-name">${displayName.replace(/\(.*?\)/g,'').replace(/_\(.*?\)/g,'').trim()}</span>
                         ${c ? `<span class="card-ingredient">${c.name}</span>` : ''}
                     </div>
                     <div class="card-body">
