@@ -123,8 +123,17 @@ const PHARMACY_INFO = {
     name: '윤약국',
     owner: '윤중식',
     bizNo: '3020259468',  // 사업자등록번호 (영수증 표기: 하이픈 없음)
-    address: '경기도 화성시 동탄지성로 18 금정프라자',
+    address: '경기도 화성시 동탄지성로 18 금정프라자 101호',
 };
+
+// 약국 직인(원형 인감) — 영수증 성명란에 빨간색으로 날인
+const STAMP_SVG = `<svg class="r-seal" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">`
+    + `<circle cx="60" cy="60" r="56" fill="none" stroke="#C8102E" stroke-width="5"/>`
+    + `<circle cx="60" cy="60" r="47" fill="none" stroke="#C8102E" stroke-width="1.5"/>`
+    + `<text x="60" y="41" text-anchor="middle" fill="#C8102E" font-size="33" font-weight="800">윤</text>`
+    + `<text x="38" y="85" text-anchor="middle" fill="#C8102E" font-size="33" font-weight="800">약</text>`
+    + `<text x="82" y="85" text-anchor="middle" fill="#C8102E" font-size="33" font-weight="800">국</text>`
+    + `</svg>`;
 
 function classifyDrug(name) {
     if (!name) return 'none';
@@ -980,7 +989,7 @@ function prescriptionApp() {
           <tr><th>사업자등록번호</th><td>${esc(PHARMACY_INFO.bizNo)}</td></tr>
           <tr><th>사업자소재지</th><td>${esc(PHARMACY_INFO.address)}</td></tr>
           <tr><th>상호</th><td>${esc(PHARMACY_INFO.name)}</td></tr>
-          <tr><th>성명</th><td>${esc(PHARMACY_INFO.owner)}</td></tr>
+          <tr><th>성명</th><td class="r-stamp-cell">${esc(PHARMACY_INFO.owner)}${STAMP_SVG}</td></tr>
           <tr><th>발행일</th><td>${ymd}</td></tr>
         </table>
       </td>
@@ -1074,6 +1083,8 @@ function prescriptionApp() {
   .receipt .r-vlabel { writing-mode: horizontal-tb; white-space: normal; font-size: 9px; }
   .receipt .r-pay { color: #c00; font-weight: bold; font-size: 12px; }
   .receipt .rt .r-col3 td, .receipt .r-grid .r-col:nth-child(3) .rt td { text-align: left; font-size: 9px; }
+  .receipt .r-stamp-cell { position: relative; }
+  .receipt .r-seal { position: absolute; right: 8px; top: 50%; width: 34px; height: 34px; transform: translateY(-50%) rotate(-7deg); pointer-events: none; }
   .receipt .r-notes { padding: 4px 8px; font-size: 8.5px; color: #333; line-height: 1.5; border-top: 1px solid #999; }
   .receipt .r-notes p { margin: 1px 0; }
   .page-footer { margin-top: 5mm; text-align: center; font-size: 9px; color: #888; border-top: 1px solid #ccc; padding-top: 2mm; }
