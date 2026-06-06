@@ -428,17 +428,11 @@ function prescriptionApp() {
         get insuredDrugTotalTrunc() {
             return Math.floor(this.insuredDrugTotal / 10) * 10;
         },
-        // 본인부담 일반약가분: 투약일수가 같은 보험약끼리 묶은 합 목록 (그룹별 100원 끝수처리)
-        // 실측: 그룹합산 후 끝수처리가 맞음 (다품목 4종 케이스 = 그룹합산 500 일치, 품목별이면 600으로 틀림)
+        // 본인부담 약가분 계산용 품목별 약가 목록 (copayInfo에서 품목별 10원 끝수 → 합산 → 100원 끝수)
         get insuredMainGroupSums() {
-            const groups = {};
-            for (const d of this.drugs) {
-                if (d.coverageType === 'insured' && !d.isIncentive && (d.name || d.amount)) {
-                    const k = d.totalDays || 0;
-                    groups[k] = (groups[k] || 0) + (d.amount || 0);
-                }
-            }
-            return Object.values(groups);
+            return this.drugs
+                .filter(d => d.coverageType === 'insured' && !d.isIncentive && (d.name || d.amount))
+                .map(d => d.amount || 0);
         },
         get fullPayDrugTotal() {
             return this.drugs.filter(d => d.coverageType === 'fullPay').reduce((s, d) => s + (d.amount || 0), 0);
@@ -509,18 +503,19 @@ function prescriptionApp() {
                 const age = this.age;
                 const feeForCopay = this.noDispensingFee ? 0 : this.calcResult.totalFee;
                 const feeInsured = (this.insuredDrugTotal > 0 || fullPay > 0) ? feeForCopay : 0;
-                const mainGroups = this.insuredMainGroupSums;           // 일반약가분: 투약일수 그룹별
+                const mainGroups = this.insuredMainGroupSums;           // 품목별 약가 목록
                 const incentive = this.insuredDrugIncentiveTotal;       // 저가인센티브분(별도)
-                // 끝수처리(100원) 실측 확정:
-                //  - 6세미만(조산아 제외): 조제료·약가 모두 올림(ceil)
-                //  - 그 외(6세이상 성인·65세·조산아): 조제료분 반올림(round) + 약가·인센분 내림(floor)
-                //    (2026-06-06 실측 정정: 조제료 6,789→6,800 반올림 / 약가 469.8→400 내림 두 케이스로 방향 확정)
+                // 끝수처리 (R3, 2026-06-06 실측 5케이스 확정: single 3,600 / 4종 3,400 / 5종 3,500 / caseA 9,300 / caseB 2,600):
+                //  - 조제료분 = 100원 끝수처리 (6세미만 올림 / 그 외 반올림)
+                //  - 약가분 = 약품별로 10원 끝수처리 → 합산 → 100원 끝수처리 (6세미만 올림 / 그 외 내림)
+                //  ⚠️ 김혜담(흡입제+가루약+달빛)만 −200 미해결 — 외용/가루/달빛 섞인 처방의 별도 끝수 추정, 추가 실측 필요
                 const isCeil = (age !== null && age < 6 && !this.isPremature);
-                const rFee = isCeil ? (x => Math.ceil(x / 100) * 100) : (x => Math.round(x / 100) * 100);
-                const rDrug = isCeil ? (x => Math.ceil(x / 100) * 100) : (x => Math.floor(x / 100) * 100);
-                const pct = (rate) => rFee(feeInsured * rate)
-                                    + mainGroups.reduce((s, g) => s + rDrug(g * rate), 0)
-                                    + rDrug(incentive * rate);
+                const feeR100  = isCeil ? (x => Math.ceil(x / 100) * 100) : (x => Math.round(x / 100) * 100);
+                const drugR10  = isCeil ? (x => Math.ceil(x / 10) * 10)   : (x => Math.floor(x / 10) * 10);
+                const drugR100 = isCeil ? (x => Math.ceil(x / 100) * 100) : (x => Math.floor(x / 100) * 100);
+                const pct = (rate) => feeR100(feeInsured * rate)
+                                    + drugR100(mainGroups.reduce((s, g) => s + drugR10(g * rate), 0))
+                                    + drugR100(drugR10(incentive * rate));
 
                 if (this.isPremature) {
                     // 조산아(F016) 5%: 항목별 반올림 (성인과 동일 끝수처리)
