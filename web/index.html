@@ -355,7 +355,7 @@
                         </span>
                     </template>
                 </span>
-                <span class="result-value" x-text="'₩' + drugTotal.toLocaleString()"></span>
+                <span class="result-value" x-text="'₩' + drugTotalRaw.toLocaleString()"></span>
             </div>
             <div class="result-row">
                 <span class="result-label">처방조제료
@@ -366,7 +366,7 @@
             </div>
             <div class="result-row bg-light">
                 <span class="result-label-bold">총액 (약값)</span>
-                <span class="result-value-lg" x-text="'₩' + grandTotal.toLocaleString()"></span>
+                <span class="result-value-lg" x-text="'₩' + grandTotalRaw.toLocaleString()"></span>
             </div>
             <div class="copay-select-row">
                 <div class="copay-select-group" style="flex:1;flex-wrap:wrap;gap:0.25rem 0.5rem">

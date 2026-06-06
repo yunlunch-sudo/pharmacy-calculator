@@ -399,8 +399,16 @@ function prescriptionApp() {
         },
 
         get drugTotal() {
-            // 급여 약가합계는 10원 절사 (약국 프로그램 청구 기준: 원단위 버림)
+            // 급여 약가합계는 10원 절사 (약국 프로그램 청구 기준: 원단위 버림). 본인부담·공단청구 계산용.
             return this.insuredDrugTotalTrunc + this.fullPayDrugTotal + this.nonCoveredDrugTotal;
+        },
+        // 표시용: 약가 총합을 원 단위 그대로 (10원 절사 안 함). 화면 약품비합계·총액 표시에만 사용.
+        get drugTotalRaw() {
+            return this.insuredDrugTotal + this.fullPayDrugTotal + this.nonCoveredDrugTotal;
+        },
+        get grandTotalRaw() {
+            const fee = this.noDispensingFee ? 0 : this.calcResult.totalFee;
+            return this.drugTotalRaw + fee;
         },
 
         // 보험 유형별 약품비 분리
