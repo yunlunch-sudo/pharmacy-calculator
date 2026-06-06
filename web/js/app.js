@@ -793,6 +793,8 @@ function prescriptionApp() {
             if (data.patient_name && data.patient_name.trim()) {
                 this.patientName = data.patient_name.trim();
             }
+            // 가루약조제 표시 → 가루약가산 자동 체크 (6세미만 1~2일분은 recalcAll에서 자동 해제됨)
+            this.isPowder = !!data.is_powder;
             // 나이 (주민번호 앞 6자리)
             if (data.birth_6 && /^\d{6}$/.test(data.birth_6)) {
                 this.birthDate = data.birth_6;

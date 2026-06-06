@@ -76,6 +76,7 @@ class Prescription(BaseModel):
     )
     hospital_name: str = Field(description="발행 의료기관(병원)명. 예: 베스트아이들병원. 없으면 빈 문자열")
     hospital_code: str = Field(description="발행기관 요양기관기호(숫자). 없으면 빈 문자열")
+    is_powder: bool = Field(description="가루약 조제 여부. 처방전에 '가루약조제'(분쇄/가루) 표시가 있으면 true, 없으면 false")
     notes: str = Field(description="판독 시 애매했던 점이나 참고사항(없으면 빈 문자열)")
 
 
@@ -97,6 +98,9 @@ SYSTEM = """\
 [발행기관]
 - hospital_name: 처방전을 발행한 의료기관(병원/의원)명. 예: "베스트아이들병원". 없으면 "".
 - hospital_code: 발행기관의 요양기관기호(숫자). 없으면 "".
+
+[조제 정보]
+- is_powder: 처방전에 '가루약조제'(또는 분쇄·가루) 표시가 있으면 true. 보통 처방전 하단 '조제시 참고사항/주사제 처방내역' 영역에 표기됨. 표시 없으면 false.
 
 규칙:
 - 표의 숫자(1회량/횟수/일수)는 처방전에 적힌 값을 그대로 읽되, 1회량은 소수점까지.
