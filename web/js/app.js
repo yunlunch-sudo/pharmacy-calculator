@@ -131,8 +131,8 @@ const STAMP_SVG = `<svg class="r-seal" width="34" height="34" viewBox="0 0 120 1
     + `<circle cx="60" cy="60" r="56" fill="none" stroke="#C8102E" stroke-width="5"/>`
     + `<circle cx="60" cy="60" r="47" fill="none" stroke="#C8102E" stroke-width="1.5"/>`
     + `<text x="60" y="41" text-anchor="middle" fill="#C8102E" font-size="33" font-weight="800">윤</text>`
-    + `<text x="38" y="85" text-anchor="middle" fill="#C8102E" font-size="33" font-weight="800">약</text>`
-    + `<text x="82" y="85" text-anchor="middle" fill="#C8102E" font-size="33" font-weight="800">국</text>`
+    + `<text x="38" y="85" text-anchor="middle" fill="#C8102E" font-size="33" font-weight="800">중</text>`
+    + `<text x="82" y="85" text-anchor="middle" fill="#C8102E" font-size="33" font-weight="800">식</text>`
     + `</svg>`;
 
 function classifyDrug(name) {
