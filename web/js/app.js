@@ -420,16 +420,12 @@ function prescriptionApp() {
         get insuredDrugTotalTrunc() {
             return Math.floor(this.insuredDrugTotal / 10) * 10;
         },
-        // 본인부담 일반약가분: 투약일수가 같은 보험약끼리 묶은 합 목록 (그룹별 100원 올림용)
+        // 본인부담 일반약가분: 보험약을 품목별로 각각 끝수처리(100원)하기 위한 약가 목록
+        // 약국 청구 프로그램 실측: 같은 투약일수라도 약품마다 따로 올림/반올림한다 (그룹 합산이 아님)
         get insuredMainGroupSums() {
-            const groups = {};
-            for (const d of this.drugs) {
-                if (d.coverageType === 'insured' && !d.isIncentive && (d.name || d.amount)) {
-                    const k = d.totalDays || 0;
-                    groups[k] = (groups[k] || 0) + (d.amount || 0);
-                }
-            }
-            return Object.values(groups);
+            return this.drugs
+                .filter(d => d.coverageType === 'insured' && !d.isIncentive && (d.name || d.amount))
+                .map(d => d.amount || 0);
         },
         get fullPayDrugTotal() {
             return this.drugs.filter(d => d.coverageType === 'fullPay').reduce((s, d) => s + (d.amount || 0), 0);
