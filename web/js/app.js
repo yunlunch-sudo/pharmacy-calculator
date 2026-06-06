@@ -118,6 +118,14 @@ const SELF_INJECTION_KEYWORDS = [
 const INJECTION_KEYWORDS = ['주사'];
 const NARCOTIC_KEYWORDS = ['졸피뎀', '트라마돌', '코데인', '펜타닐', '모르핀', '디아제팜', '알프라졸람', '로라제팜', '클로나제팜', '페노바르비탈', '미다졸람', '졸피담'];
 
+// 약국 정보 (약제비 계산서·영수증·복약안내문 발행처). 윤약국은 영수증에 전화번호 미표기.
+const PHARMACY_INFO = {
+    name: '윤약국',
+    owner: '윤중식',
+    bizNo: '3020259468',  // 사업자등록번호 (영수증 표기: 하이픈 없음)
+    address: '경기도 화성시 동탄지성로 18 금정프라자',
+};
+
 function classifyDrug(name) {
     if (!name) return 'none';
     const n = name.toLowerCase();
@@ -215,6 +223,7 @@ function prescriptionApp() {
 
     return {
         // 환자 정보
+        patientName: '',
         birthDate: '',
         age: null,
 
@@ -436,13 +445,19 @@ function prescriptionApp() {
             return 0;
         },
 
-        // 본인부담금 자동 계산 (보험유형+나이+총액 기반)
-        get copayInfo() {
+        // 비급여(전액본인부담) 합계: 100/100 약가 + 비급여 약가 (+ 비급여만일 때 조제료)
+        get extraPayTotal() {
             const fullPay = this.fullPayDrugTotal;
             const nonCovered = this.nonCoveredDrugTotal;
             const nonCoveredFee = (!this.noDispensingFee && nonCovered > 0 && this.insuredDrugTotal === 0 && fullPay === 0)
                 ? this.calcResult.totalFee : 0;
-            const extraPay = fullPay + nonCovered + nonCoveredFee;
+            return fullPay + nonCovered + nonCoveredFee;
+        },
+
+        // 본인부담금 자동 계산 (보험유형+나이+총액 기반)
+        get copayInfo() {
+            const fullPay = this.fullPayDrugTotal;
+            const extraPay = this.extraPayTotal;
 
             if (this.copayManual) {
                 const base = Math.floor(this.grandTotal * this.copayRate / 10) * 10;
@@ -769,6 +784,10 @@ function prescriptionApp() {
 
         // OCR 결과(JSON)를 폼에 반영. 미매칭 약품은 백엔드 HIRA DB에서 자동 조회.
         async applyOcr(data) {
+            // 환자 이름 (있으면 자동 채움)
+            if (data.patient_name && data.patient_name.trim()) {
+                this.patientName = data.patient_name.trim();
+            }
             // 나이 (주민번호 앞 6자리)
             if (data.birth_6 && /^\d{6}$/.test(data.birth_6)) {
                 this.birthDate = data.birth_6;
@@ -905,6 +924,73 @@ function prescriptionApp() {
 
             const today = new Date();
             const dateStr = `${today.getFullYear()}년 ${today.getMonth()+1}월 ${today.getDate()}일`;
+            const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+            const patientName = (this.patientName || '').trim();
+            const ageStr = (this.age !== null && this.age !== undefined) ? ` (${this.age}세)` : '';
+            const nameHtml = patientName ? `<div class="patient-name">${esc(patientName)}${ageStr} 님</div>` : '';
+
+            // 약제비 계산서·영수증 [별지 제11호 서식] — 윤약국 정식 양식
+            const won = (n) => (Math.round(n) || 0).toLocaleString() + ' 원';
+            const pad = (n) => String(n).padStart(2, '0');
+            const ymd = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+            const ymd8 = `${today.getFullYear()}${pad(today.getMonth()+1)}${pad(today.getDate())}`;
+            // 영수증번호: YYYYMMDD + 당일 일련번호(4자리), localStorage로 매일 1부터 누적
+            const serialKey = 'receiptSerial_' + ymd8;
+            let serial = parseInt(localStorage.getItem(serialKey) || '0', 10) + 1;
+            try { localStorage.setItem(serialKey, String(serial)); } catch (e) {}
+            const receiptNo = ymd8 + String(serial).padStart(4, '0');
+            const extra = this.extraPayTotal;                       // ③ 비급여 및 전액본인부담금
+            const copay = this.copayAmount;                         // 총수납금액(①+③)
+            const insuredCopay = Math.max(0, copay - extra);        // ① 본인부담금
+            const gongdan = this.insuranceAmount;                   // ② 보험자부담금
+            const grand = this.grandTotal;                          // 약제비총액(①+②+③)
+            const days = this.maxDays;
+            const hr = this.currentHour;
+            const isNight = (hr >= 18 || hr < 9);                    // 야간(시간외)
+            const isHolidayDay = (this.dayType === 'holiday');      // 공휴일
+            const chk = (on) => on ? '√' : '&nbsp;&nbsp;';
+            const receiptHtml = `
+  <div class="receipt">
+    <div class="r-title">약제비 계산서·영수증 <span class="r-form">[별지 제11호 서식]</span></div>
+    <table class="r-grid"><tr>
+      <td class="r-col">
+        <table class="rt">
+          <tr><th>영수증번호</th><td colspan="2">${receiptNo}</td></tr>
+          <tr><td colspan="3" class="r-date">${ymd} &nbsp;&nbsp; 야간(${chk(isNight)}) &nbsp; 공휴일(${chk(isHolidayDay)})</td></tr>
+          <tr><th>환자성명</th><td colspan="2">${esc(patientName) || '-'}</td></tr>
+          <tr><th>투약일수</th><td colspan="2">${days ? days + ' 일' : '-'}</td></tr>
+          <tr><th>약제비총액<span class="r-sup">①+②+③</span></th><td colspan="2">${won(grand)}</td></tr>
+          <tr><th>본인부담금 ①</th><td colspan="2">${won(insuredCopay)}</td></tr>
+          <tr><th>보험자부담금 ②</th><td colspan="2">${won(gongdan)}</td></tr>
+        </table>
+      </td>
+      <td class="r-col">
+        <table class="rt">
+          <tr><th colspan="2">비급여및전액본인부담금③</th><td>${won(extra)}</td></tr>
+          <tr><th rowspan="4" class="r-vlabel">총수납금액<br>(①+③)</th><th>카드</th><td>&nbsp;</td></tr>
+          <tr><th>현금영수증</th><td>&nbsp;</td></tr>
+          <tr><th>현금</th><td>&nbsp;</td></tr>
+          <tr><th>합계</th><td class="r-pay">${won(copay)}</td></tr>
+          <tr><th rowspan="2" class="r-vlabel">현금영수증</th><th>신분확인번호</th><td>-</td></tr>
+          <tr><th>현금승인번호</th><td>&nbsp;</td></tr>
+        </table>
+      </td>
+      <td class="r-col">
+        <table class="rt">
+          <tr><th>사업자등록번호</th><td>${esc(PHARMACY_INFO.bizNo)}</td></tr>
+          <tr><th>사업자소재지</th><td>${esc(PHARMACY_INFO.address)}</td></tr>
+          <tr><th>상호</th><td>${esc(PHARMACY_INFO.name)}</td></tr>
+          <tr><th>성명</th><td>${esc(PHARMACY_INFO.owner)}</td></tr>
+          <tr><th>발행일</th><td>${ymd}</td></tr>
+        </table>
+      </td>
+    </tr></table>
+    <div class="r-notes">
+      <p>* 이 계산서/영수증은 소득세법상 의료비 또는 조세특례제한법에 의한 현금영수증(현금영수증 번호가 기재된 경우) 공제신청에 사용할 수 있습니다. 다만, 지출증빙용으로 발급된 현금영수증(지출증빙)은 공제신청에 사용할 수 없습니다.</p>
+      <p>* 이 계산서 영수증에 대한 세부내역을 요구할 수 있습니다.</p>
+      <p>* 전액본인부담금이란 국민건강보험법 시행규칙 별표5의 규정에 의한 요양급여비용의 본인전액부담항목 비용을 말합니다.</p>
+    </div>
+  </div>`;
 
             // 카드 HTML 생성
             const cardColors = ['#1d6fad','#2d7f3a','#a3440e','#6b2fa0','#a0522d','#1a7a7a','#8b1a1a'];
@@ -955,6 +1041,7 @@ function prescriptionApp() {
   body { font-size: 10px; color: #222; }
   .page-header { text-align: center; margin-bottom: 5mm; padding-bottom: 3mm; border-bottom: 2px solid #333; }
   .page-header h1 { font-size: 16px; font-weight: bold; letter-spacing: 4px; }
+  .page-header .patient-name { font-size: 14px; font-weight: bold; color: #1d6fad; margin-top: 3px; }
   .page-header .sub { font-size: 10px; color: #555; margin-top: 2px; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
   .drug-card { border: 1px solid #ccc; border-radius: 3px; overflow: hidden; page-break-inside: avoid; }
@@ -969,6 +1056,26 @@ function prescriptionApp() {
   .precautions { margin-top: 3px; background: #fff8e8; border-left: 3px solid #f0a500; padding: 3px 5px; font-size: 9px; line-height: 1.4; color: #555; }
   .prec-label { font-weight: bold; color: #c07000; }
   .no-data { padding: 6px; color: #666; font-size: 9px; }
+  .receipt { margin-top: 6mm; border: 2px solid #1a1a1a; page-break-inside: avoid; }
+  .receipt .r-title { text-align: center; font-size: 13px; font-weight: bold; letter-spacing: 2px; padding: 4px 0; border-bottom: 2px solid #1a1a1a; }
+  .receipt .r-title .r-form { font-size: 11px; font-weight: bold; letter-spacing: 0; margin-left: 4px; }
+  .receipt .r-grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .receipt .r-grid > tbody > tr > .r-col { border-right: 2px solid #1a1a1a; padding: 0; vertical-align: top; }
+  .receipt .r-grid > tbody > tr > .r-col:last-child { border-right: none; }
+  .receipt .r-grid > tbody > tr > .r-col:nth-child(1) { width: 38%; }
+  .receipt .r-grid > tbody > tr > .r-col:nth-child(2) { width: 34%; }
+  .receipt .r-grid > tbody > tr > .r-col:nth-child(3) { width: 28%; }
+  .receipt .rt { width: 100%; height: 100%; border-collapse: collapse; font-size: 10px; }
+  .receipt .rt th, .receipt .rt td { border: 0.7px solid #777; padding: 3px 5px; text-align: center; vertical-align: middle; line-height: 1.3; }
+  .receipt .rt th { background: #fafafa; color: #222; font-weight: 600; white-space: nowrap; }
+  .receipt .rt td { text-align: right; }
+  .receipt .r-date { text-align: center !important; font-weight: 600; }
+  .receipt .r-sup { font-size: 8px; color: #555; margin-left: 2px; vertical-align: middle; }
+  .receipt .r-vlabel { writing-mode: horizontal-tb; white-space: normal; font-size: 9px; }
+  .receipt .r-pay { color: #c00; font-weight: bold; font-size: 12px; }
+  .receipt .rt .r-col3 td, .receipt .r-grid .r-col:nth-child(3) .rt td { text-align: left; font-size: 9px; }
+  .receipt .r-notes { padding: 4px 8px; font-size: 8.5px; color: #333; line-height: 1.5; border-top: 1px solid #999; }
+  .receipt .r-notes p { margin: 1px 0; }
   .page-footer { margin-top: 5mm; text-align: center; font-size: 9px; color: #888; border-top: 1px solid #ccc; padding-top: 2mm; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style>
@@ -976,9 +1083,11 @@ function prescriptionApp() {
 <body>
   <div class="page-header">
     <h1>복 약 안 내 문</h1>
-    <div class="sub">윤약국 &nbsp;|&nbsp; 발행일: ${dateStr} &nbsp;|&nbsp; 총 ${activeDrugs.length}가지 약품</div>
+    ${nameHtml}
+    <div class="sub">${esc(PHARMACY_INFO.name)} &nbsp;|&nbsp; 발행일: ${dateStr} &nbsp;|&nbsp; 총 ${activeDrugs.length}가지 약품</div>
   </div>
   <div class="grid">${cards}</div>
+  ${receiptHtml}
   <div class="page-footer">본 복약안내문은 복약지도를 보조하기 위한 자료입니다. 궁금한 사항은 약사에게 문의하세요.</div>
   <script>window.onload = function(){ window.print(); }<\/script>
 </body>
@@ -1088,6 +1197,7 @@ function prescriptionApp() {
 
         // 전체 초기화 (새 처방)
         resetAll() {
+            this.patientName = '';
             this.birthDate = '';
             this.age = null;
             this.ocrStatus = '';

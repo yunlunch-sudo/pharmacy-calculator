@@ -27,6 +27,10 @@
             <div class="section border-b sm-border-r sm-no-border-b">
                 <div class="section-title">환자 정보</div>
                 <div class="form-row">
+                    <label class="form-label">이름</label>
+                    <input type="text" x-model="patientName" class="form-input" placeholder="환자 이름" maxlength="20">
+                </div>
+                <div class="form-row">
                     <label class="form-label">보험유형</label>
                     <select x-model="insuranceType" class="form-select" style="flex:none;width:auto">
                         <option value="health">건강보험</option>

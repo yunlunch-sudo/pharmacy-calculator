@@ -70,6 +70,7 @@ class Drug(BaseModel):
 
 class Prescription(BaseModel):
     drugs: list[Drug] = Field(description="처방된 의약품 목록 (표의 모든 행)")
+    patient_name: str = Field(description="환자 성명. 처방전에 적힌 그대로. 없거나 가려져 있으면 빈 문자열")
     birth_6: str = Field(
         description="환자 주민등록번호 앞 6자리(YYMMDD). 보이지 않으면 빈 문자열"
     )
@@ -90,6 +91,7 @@ SYSTEM = """\
 - total_days: 총 투약일수(일분).
 
 [환자 정보]
+- patient_name: 환자 성명. 처방전 상단 '환자 성명'란에 인쇄된 이름 그대로. 없거나 가려져 있으면 "".
 - birth_6: 주민등록번호 앞 6자리(YYMMDD). 가려져 있거나 없으면 "".
 
 [발행기관]
