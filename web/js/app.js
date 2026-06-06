@@ -617,9 +617,16 @@ function prescriptionApp() {
             const next = order[(cur + 1) % 3];
             this.drugs[idx].coverageType = next;
             const d = this.drugs[idx];
-            if (d.code) localStorage.setItem('drugCoverage_' + normCode(d.code), next);
+            if (d.code) {
+                localStorage.setItem('drugCoverage_' + normCode(d.code), next);
+                // 비급여로 전환 시 저장해둔 비급여 단가 복원 (selectDrug과 동일) → 0원/보험가로 덮이는 것 방지
+                if (next === 'nonCovered') {
+                    const saved = lsGet('nonCoveredPrice_', d.code);
+                    if (saved) d.unitPrice = Number(saved);
+                }
+            }
             if (d.code && d.name) rememberDrug(d);
-            this.recalcAll();
+            this.recalcDrug(idx);  // 약품비(amount) 재계산 포함 (recalcAll만으론 amount 미갱신)
         },
 
         // 저가인센티브 토글, 개인DB에도 저장
