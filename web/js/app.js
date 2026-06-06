@@ -506,11 +506,13 @@ function prescriptionApp() {
                 const feeInsured = (this.insuredDrugTotal > 0 || fullPay > 0) ? feeForCopay : 0;
                 const mainGroups = this.insuredMainGroupSums;           // 일반약가분: 투약일수 그룹별
                 const incentive = this.insuredDrugIncentiveTotal;       // 저가인센티브분(별도)
-                // 끝수처리(100원) 실측 확정: 6세미만(조산아 제외)은 전부 올림 /
-                // 그 외(성인·65세·조산아)는 조제료분 내림(floor), 약가·인센분 반올림
+                // 끝수처리(100원) 실측 확정:
+                //  - 6세미만(조산아 제외): 조제료·약가 모두 올림(ceil)
+                //  - 그 외(6세이상 성인·65세·조산아): 조제료분 반올림(round) + 약가·인센분 내림(floor)
+                //    (2026-06-06 실측 정정: 조제료 6,789→6,800 반올림 / 약가 469.8→400 내림 두 케이스로 방향 확정)
                 const isCeil = (age !== null && age < 6 && !this.isPremature);
-                const rFee = isCeil ? (x => Math.ceil(x / 100) * 100) : (x => Math.floor(x / 100) * 100);
-                const rDrug = isCeil ? (x => Math.ceil(x / 100) * 100) : (x => Math.round(x / 100) * 100);
+                const rFee = isCeil ? (x => Math.ceil(x / 100) * 100) : (x => Math.round(x / 100) * 100);
+                const rDrug = isCeil ? (x => Math.ceil(x / 100) * 100) : (x => Math.floor(x / 100) * 100);
                 const pct = (rate) => rFee(feeInsured * rate)
                                     + mainGroups.reduce((s, g) => s + rDrug(g * rate), 0)
                                     + rDrug(incentive * rate);
