@@ -1034,6 +1034,7 @@ function prescriptionApp() {
                 const displayName = resolveDrugName(drug);
                 const c = findCounseling(displayName) || findCounseling(drug.name);
                 const color = cardColors[i % cardColors.length];
+                const imgFile = (typeof PILL_IMAGES !== 'undefined') ? PILL_IMAGES[normCode(drug.code || '')] : null;
                 const doseDesc = drug.dosePerTime && drug.timesPerDay && drug.totalDays
                     ? `1회 ${drug.dosePerTime}개(정/포/ml)씩, 1일 ${drug.timesPerDay}회, ${drug.totalDays}일분`
                     : '';
@@ -1044,6 +1045,7 @@ function prescriptionApp() {
                         ${c ? `<span class="card-ingredient">${c.name}</span>` : ''}
                     </div>
                     <div class="card-body">
+                        ${imgFile ? `<div style="text-align:center;margin-bottom:3px"><img src="pills/${imgFile}" style="max-height:55px;max-width:85%;border:1px solid #ddd;border-radius:3px" onerror="this.style.display='none'"></div>` : ''}
                         ${c ? `
                         <table class="info-table">
                             <tr><th>효&nbsp;&nbsp;&nbsp;능</th><td>${c.efficacy}</td></tr>
@@ -1071,6 +1073,7 @@ function prescriptionApp() {
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<base href="${location.href}">
 <title>복약안내문</title>
 <style>
   @page { size: A4 portrait; margin: 8mm 8mm 8mm 8mm; }
