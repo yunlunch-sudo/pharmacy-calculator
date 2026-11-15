@@ -158,3 +158,7 @@ input[type="number"] { -moz-appearance: textfield; }
     input, select { min-height: 36px; font-size: 16px !important; }
     .drug-header, .drug-row { grid-template-columns: 0.8fr 3.5fr 1fr 1fr 1fr 1fr 1fr 1.8fr; }
 }
+
+/* 심평원 전체 급여목록에서 찾은 약 표시 */
+.hira-tag { display:inline-block; font-size:0.6rem; line-height:1.2; padding:0 0.25rem; margin-left:0.25rem;
+    border-radius:0.25rem; background:#ecfeff; color:#0e7490; border:1px solid #a5f3fc; white-space:nowrap; flex-shrink:0; }

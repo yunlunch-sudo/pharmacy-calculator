@@ -73,6 +73,44 @@ function isAllChosung(str) {
     return /^[ㄱ-ㅎ]+$/.test(str);
 }
 
+// 심평원 전체 급여목록(drug_db_hira.js, 앱에 내장) — 서버 없이 즉시 검색. 기본DB에 없는 약만, 처음 쓸 때 한 번 만든다
+let _HIRA_EXTRA = null;
+function hiraExtra() {
+    if (_HIRA_EXTRA) return _HIRA_EXTRA;
+    if (typeof HIRA_DB_DATA === 'undefined') return (_HIRA_EXTRA = []);
+    const own = new Set(DRUG_DB.map(d => normCode(d.code)));
+    _HIRA_EXTRA = HIRA_DB_DATA
+        .filter(r => !own.has(r[0]))
+        .map(r => ({ code: r[0], name: r[1], price: r[2], route: r[3], ingr: r[4] || '',
+                     note: '', searchName: r[1].toLowerCase(), _hira: true,
+                     _base: r[1].split(/[(_]/)[0].length }));   // 정렬용: 괄호 속 성분·규격 뺀 이름 길이
+    return _HIRA_EXTRA;
+}
+
+// 보험코드가 정확히 일치하는 약: 개인DB → 기본DB → 전체 급여목록 (8자리는 앞에 0을 붙여 본다)
+function findByCode(code) {
+    const c = normCode(code);
+    if (!c) return null;
+    const local = loadLocalDrugDb()[c];
+    if (local && local.name) return local;
+    return DRUG_DB.find(d => normCode(d.code) === c) || hiraExtra().find(d => d.code === c) || null;
+}
+
+function _searchHira(query) {
+    const q = query.toLowerCase();
+    const isNum = /^\d+$/.test(query), isCho = isAllChosung(query);
+    if (isNum ? query.length < 4 : query.length < 2) return [];   // 한두 글자로 2만 건을 훑지 않게
+    const out = hiraExtra().filter(d => {
+        if (isNum) return d.code.includes(query);
+        if (isCho) { if (d._cho === undefined) d._cho = getChosung(d.name); return d._cho.includes(query); }
+        return d.searchName.includes(q) || (d.ingr && d.ingr.toLowerCase().includes(q));
+    });
+    // 이름이 검색어로 시작하는 약 → 이름 짧은 약 순 (리피토 → 리피토정이 리피토플러스정보다 먼저)
+    const starts = d => (d.searchName.startsWith(q) || (d._cho !== undefined && d._cho.startsWith(query))) ? 0 : 1;
+    out.sort((a, b) => starts(a) - starts(b) || a._base - b._base || (a.name < b.name ? -1 : 1));
+    return out;
+}
+
 function searchDrugs(query) {
     if (!query || query.length < 1) return [];
     const q = query.toLowerCase();
@@ -98,7 +136,13 @@ function searchDrugs(query) {
             (d.searchName || '').toString().includes(q)
         );
     }
-    return results.slice(0, 20);
+    results = results.slice(0, 20);
+    // 모자라면 앱에 내장된 전체 급여목록에서 채운다
+    if (results.length < 20) {
+        const have = new Set(results.map(d => normCode(d.code)));
+        results = results.concat(_searchHira(query).filter(d => !have.has(d.code)).slice(0, 20 - results.length));
+    }
+    return results;
 }
 
 // 약품명 기반 자동 분류
@@ -135,7 +179,16 @@ const STAMP_SVG = `<svg class="r-seal" width="34" height="34" viewBox="0 0 120 1
     + `<text x="82" y="85" text-anchor="middle" fill="#C8102E" font-size="33" font-weight="800">식</text>`
     + `</svg>`;
 
-function classifyDrug(name) {
+function classifyDrug(name, route) {
+    const c = _classifyByName(name);
+    // 이름 키워드로 못 잡아 '내복'으로 떨어진 약만 심평원 '투여' 구분(전체 급여목록)으로 보정.
+    // 키워드로 잡힌 분류(자가주사·겔 예외 등)는 그대로 둔다.
+    if (c === 'oral' && route === 't') return 'topical';
+    if (c === 'oral' && route === 'i') return 'injection';
+    return c;
+}
+
+function _classifyByName(name) {
     if (!name) return 'none';
     const n = name.toLowerCase();
     // 자가투여주사 (펜주·인슐린·성장호르몬 등) → 단독 처방일 때만 자가투여주사 조제료(F).
@@ -176,6 +229,8 @@ function createEmptyDrug() {
         amount: 0,
         coverageType: 'insured', // insured: 보험, fullPay: 100/100, nonCovered: 비급여
         isIncentive: false, // 저가인센티브(저가약): 본인부담 별도 100원 올림
+        route: '',          // 전체 급여목록에서 고른 약의 투여 구분 (o/t/i)
+        codeNotFound: false, // 보험코드로 쳤는데 어디에도 없음
         suggestions: [],
         showSuggestions: false,
         suggestionIdx: -1,
@@ -183,8 +238,8 @@ function createEmptyDrug() {
     };
 }
 
-// 2026년 공휴일 목록
-const HOLIDAYS_2026 = {
+// 공휴일 목록 (2026~2027) — 해가 바뀌기 전에 다음 해를 추가할 것
+const HOLIDAYS = {
     '2026-01-01': '신정',
     '2026-02-16': '설날 연휴',
     '2026-02-17': '설날',
@@ -204,6 +259,27 @@ const HOLIDAYS_2026 = {
     '2026-10-05': '대체공휴일(개천절)',
     '2026-10-09': '한글날',
     '2026-12-25': '성탄절',
+    // 2027년 — 대체공휴일 포함. 관공서 공휴일 고시로 한 번 확인할 것
+    '2027-01-01': '신정',
+    '2027-02-06': '설날 연휴',
+    '2027-02-07': '설날',
+    '2027-02-08': '설날 연휴',
+    '2027-02-09': '대체공휴일(설날)',
+    '2027-03-01': '삼일절',
+    '2027-05-05': '어린이날',
+    '2027-05-13': '부처님오신날',
+    '2027-06-06': '현충일',
+    '2027-08-15': '광복절',
+    '2027-08-16': '대체공휴일(광복절)',
+    '2027-09-14': '추석 연휴',
+    '2027-09-15': '추석',
+    '2027-09-16': '추석 연휴',
+    '2027-10-03': '개천절',
+    '2027-10-04': '대체공휴일(개천절)',
+    '2027-10-09': '한글날',
+    '2027-10-11': '대체공휴일(한글날)',
+    '2027-12-25': '성탄절',
+    '2027-12-27': '대체공휴일(성탄절)',
 };
 
 const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
@@ -217,7 +293,7 @@ function formatDateKey(d) {
 
 function detectDayType(date) {
     const key = formatDateKey(date);
-    if (HOLIDAYS_2026[key]) return 'holiday';
+    if (HOLIDAYS[key]) return 'holiday';
     const dow = date.getDay();
     if (dow === 0) return 'holiday';
     if (dow === 6) return 'saturday';
@@ -356,7 +432,7 @@ function prescriptionApp() {
 
         get autoHolidayName() {
             const key = formatDateKey(this.autoNow);
-            return HOLIDAYS_2026[key] || '';
+            return HOLIDAYS[key] || '';
         },
 
         refreshNow() {
@@ -566,6 +642,13 @@ function prescriptionApp() {
 
         onNameEnter(idx) {
             const d = this.drugs[idx];
+            // 숫자(보험코드)면 정확히 일치하는 약으로 — 8자리 코드도 여기서 잡힌다
+            if (/^\d+$/.test(d.name) && !(d.showSuggestions && d.suggestionIdx >= 0)) {
+                const hit = findByCode(d.name);
+                if (hit) { this.selectDrug(idx, hit); return; }
+                d.codeNotFound = true;
+                return;
+            }
             // 자동완성 선택 처리
             if (d.showSuggestions && d.suggestions.length > 0) {
                 if (d.suggestionIdx >= 0) {
@@ -685,11 +768,21 @@ function prescriptionApp() {
 
         _updateDrugSuggestions(idx, value) {
             const drug = this.drugs[idx];
+            drug.route = ''; drug.codeNotFound = false;   // 이름을 다시 치면 이전에 고른 약 정보는 버린다
+            // 보험코드 9자리를 다 치면 그 코드의 약으로 바로 바꾸고 1회량 칸으로
+            if (/^\d{9}$/.test(value)) {
+                const hit = findByCode(value);
+                if (hit) { this.selectDrug(idx, hit); return; }
+                drug.codeNotFound = true;
+                // 이전에 고른 약의 코드·약가가 남아 합계에 들어가지 않게 비운다
+                drug.code = ''; drug.unitPrice = 0; this.recalcDrug(idx);
+            }
             if (value.length >= 1) {
                 drug.suggestions = searchDrugs(value);  // 로컬(311+개인): 즉시
                 drug.showSuggestions = true;
                 drug.suggestionIdx = -1;
-                if (value.length >= 2 && OCR_API_URL) this._backendSearch(idx, value);  // HIRA 22k: 300ms 후
+                // 전체 급여목록이 앱에 없을 때만 서버(HIRA 22k)에 묻는다
+                if (value.length >= 2 && OCR_API_URL && typeof HIRA_DB_DATA === 'undefined') this._backendSearch(idx, value);
             } else {
                 drug.suggestions = [];
                 drug.showSuggestions = false;
@@ -747,6 +840,8 @@ function prescriptionApp() {
         selectDrug(idx, drug) {
             this.drugs[idx].name = drug.name;
             this.drugs[idx].code = drug.code;
+            this.drugs[idx].route = drug.route || '';
+            this.drugs[idx].codeNotFound = false;
             this.drugs[idx]._rawEng = '';
             // 저장된 coverage 우선 → 개인DB의 coverageType → DB note 기반
             const savedCoverage = lsGet('drugCoverage_', drug.code);
@@ -881,7 +976,13 @@ function prescriptionApp() {
             }
             if (rows.length) this.drugs = rows;
 
-            // 미매칭(약가 0 + 코드 있음) → 백엔드 HIRA DB(~22,000개) 조회
+            // 미매칭(약가 0 + 코드 있음) → 먼저 앱 내장 전체 급여목록에서
+            this.drugs.forEach(d => {
+                if (!d.code || d.unitPrice) return;
+                const h = hiraExtra().find(x => x.code === normCode(d.code));
+                if (h) { d.code = h.code; d.name = h.name; d.unitPrice = h.price || 0; d.route = h.route || ''; }
+            });
+            // 그래도 없으면 백엔드 HIRA DB(~22,000개) 조회
             const missed = this.drugs
                 .filter(d => d.code && !d.unitPrice)
                 .map(d => normCode(d.code))
@@ -1172,7 +1273,7 @@ function prescriptionApp() {
             this.hasNarcotic = named.some(d => isNarcoticDrug(d.name));
 
             // 약품 유형별 분류
-            const categories = named.map(d => classifyDrug(d.name));
+            const categories = named.map(d => classifyDrug(d.name, d.route));
             const hasOral = categories.includes('oral');
             const hasTopical = categories.includes('topical');          // 진짜 외용제(크림·연고·패치·점안 등)
             const hasInjection = categories.includes('injection');      // 약국조제 주사제
