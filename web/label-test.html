@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>라벨 시험지</title>
+<style>
+  :root { --ink:#111; --bg:#fff; --muted:#555; --accent:#0f766e; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ink:#111; --bg:#fff; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #f3f4f6; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #111; }
+  .guide { max-width: 640px; margin: 16px auto; padding: 16px; background: #fff; border-radius: 8px; line-height: 1.6; font-size: 15px; }
+  .guide h1 { font-size: 18px; margin-bottom: 8px; }
+  .guide ol { padding-left: 20px; }
+  .guide b { color: #0f766e; }
+  .guide button { margin-top: 12px; padding: 10px 20px; font-size: 16px; background: #0f766e; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+  .sheet-wrap { overflow-x: auto; padding: 0 16px 24px; }
+  /* 시험지: 폭 80mm 전체에 눈금, 38.5mm(라벨 한 칸+간격)마다 가로선 */
+  .sheet { position: relative; width: 80mm; height: 120mm; background: #fff; margin: 0 auto; outline: 1px dashed #bbb; }
+  .v { position: absolute; top: 0; bottom: 0; border-left: 0.25mm solid #000; }
+  .v.minor { border-left: 0.15mm solid #000; top: 0; height: 2.5mm; }
+  .n { position: absolute; font: bold 2.6mm/1 Arial, sans-serif; transform: translateX(0.6mm); }
+  .h { position: absolute; left: 0; right: 0; border-top: 0.35mm dashed #000; }
+  .hl { position: absolute; left: 1mm; font: bold 3mm/1 Arial, sans-serif; background: #fff; padding: 0 0.5mm; }
+  @page { margin: 0; }
+  @media print {
+    body { background: #fff; }
+    .guide { display: none; }
+    .sheet-wrap { padding: 0; }
+    .sheet { outline: none; margin: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="guide">
+  <h1>시럽 라벨 시험지 (위치 맞추기용)</h1>
+  <ol>
+    <li><b>조제실 PC</b> 크롬에서 아래 «인쇄» 버튼을 누릅니다.</li>
+    <li>대상 프린터: <b>시럽라벨프린터</b></li>
+    <li>«설정 더보기»를 펼쳐서 — 용지 크기: <b>80mm x Receipt</b> · 여백: <b>없음</b> · 배율: <b>기본(100)</b> · 머리글과 바닥글: <b>체크 해제</b></li>
+    <li>인쇄 → 라벨 3~4칸에 눈금이 찍혀 나옵니다. <b>떼지 말고 그대로</b> 사진을 찍어 보내 주세요.</li>
+  </ol>
+  <p style="margin-top:8px;color:#555;font-size:14px">세로 숫자 = 왼쪽 끝에서 몇 mm인지, 가로 점선 A·B·C·D = 38.5mm(라벨 한 칸 + 간격) 간격입니다. 라벨 위에 어느 숫자가 찍혔는지, 점선이 라벨 사이 빈칸에 오는지를 봅니다. 이 인쇄는 알리미팜 설정을 바꾸지 않습니다.</p>
+  <button onclick="window.print()">인쇄</button>
+</div>
+<div class="sheet-wrap"><div class="sheet" id="sheet"></div></div>
+<script>
+  const s = document.getElementById('sheet');
+  let html = '';
+  for (let x = 0; x <= 80; x += 1) {
+    if (x % 5 === 0) html += `<div class="v" style="left:${x}mm"></div>`;
+    else html += `<div class="v minor" style="left:${x}mm"></div>`;
+  }
+  // 숫자는 4mm마다 세로로 반복 → 어느 라벨에서든 읽히게
+  for (let y = 3; y < 118; y += 4.5) {
+    for (let x = 0; x < 80; x += 5) html += `<div class="n" style="left:${x}mm;top:${y}mm">${x}</div>`;
+  }
+  ['A','B','C','D'].forEach((t, i) => {
+    const y = i * 38.5;
+    html += `<div class="h" style="top:${y}mm"></div><div class="hl" style="top:${y + 0.6}mm">${t}</div>`;
+  });
+  s.innerHTML = html;
+</script>
+</body>
+</html>
