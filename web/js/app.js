@@ -334,6 +334,8 @@ function prescriptionApp() {
     return {
         // 환자 정보
         patientName: '',
+        patientSex: '',          // 환자 라벨용 '남' | '여'
+        patientLabelOn: true,    // 환자 이름 라벨 뽑기
         birthDate: '',
         age: null,
 
@@ -1364,6 +1366,24 @@ function prescriptionApp() {
         },
 
         // 전체 초기화 (새 처방)
+        // ── 환자 이름 라벨 (알리미팜 왼쪽 샘플: 이름 / 9세 / 남 / 1일 2회(30일분) / 날짜 / 윤약국 / 전화) ──
+        // 용법은 시럽을 뺀 내복약 기준: 1일 횟수·일수 중 가장 큰 값
+        get patientLabel() {
+            const oral = this.drugs.filter(d => d.name && !isSyrupDrug(d) && !this.labelOn(d)
+                                              && classifyDrug(d.name, d.route) === 'oral');
+            const n = Math.max(0, ...oral.map(d => Number(d.timesPerDay) || 0));
+            const days = Math.max(0, ...oral.map(d => Number(d.totalDays) || 0));
+            const t = new Date();
+            const ageSex = [this.age !== null ? `${this.age}세` : '', this.patientSex].filter(Boolean).join(' / ');
+            return {
+                show: this.drugs.some(d => d.name),
+                name: (this.patientName || '').trim(),
+                ageSex,
+                freq: (n && days) ? `1일 ${n}회(${days}일분)` : '',
+                date: `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`,
+            };
+        },
+
         // ── 시럽 라벨 ──
         // 라벨 대상 = 시럽으로 판정된 약 + «포함»을 직접 켠 약 (끈 약은 목록에 남기되 회색)
         get labelRows() {
@@ -1404,6 +1424,8 @@ function prescriptionApp() {
 
         resetAll() {
             this.patientName = '';
+            this.patientSex = '';
+            this.patientLabelOn = true;
             this.birthDate = '';
             this.age = null;
             this.ocrStatus = '';

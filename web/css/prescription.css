@@ -182,3 +182,4 @@ input[type="number"] { -moz-appearance: textfield; }
 .label-store button { flex: 1; font-size: 0.75rem; padding: 0.2rem 0; border: 1px solid #d1d5db; background: #fff; border-radius: 0.25rem; cursor: pointer; }
 .label-store button.on { background: #0f766e; color: #fff; border-color: #0f766e; }
 .btn-label-print { font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 0.25rem; border: 1px solid #d1d5db; background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
+.sl-pharm { font-size: 3mm; font-weight: 800; background: #111; color: #fff; padding: 0 1.2mm; letter-spacing: 0.6mm; line-height: 1.25; }
