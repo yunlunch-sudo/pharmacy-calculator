@@ -217,6 +217,31 @@ function isNarcoticDrug(name) {
     return false;
 }
 
+// ── 시럽 라벨 (알리미팜 시럽 라벨과 같은 모양, 27×33mm) ─────────────────────
+// 시럽 판정: 내복약이면서 이름에 시럽·현탁액·액제 류가 들어간 약. 아니면 라벨 목록에서 «포함» 체크로 넣는다.
+const SYRUP_NAME_RE = /시럽|현탁|건조시럽|엘릭서|드롭스|내용액|액(?=[\d(_\s]|$)/;
+function isSyrupDrug(d) {
+    if (!d || !d.name) return false;
+    return SYRUP_NAME_RE.test(d.name) && classifyDrug(d.name, d.route) === 'oral';
+}
+// 라벨용 약품명: 괄호 속 성분명 빼고, 규격(…mL)이 있으면 붙인다 — 예) 씨잘액(200mL)
+function labelDrugName(name) {
+    const n = String(name || '');
+    const base = n.split(/[(_]/)[0].trim();
+    const m = n.match(/\/\s*([\d.]+\s*mL)\)?\s*$/i) || n.match(/_\(([\d.]+\s*mL)\)/i);
+    return m ? `${base}(${m[1].replace(/\s/g, '')})` : base;
+}
+function fmtNum(x) { return Number.isInteger(x) ? String(x) : String(Math.round(x * 10) / 10); }
+function lsTry(fn, fallback) { try { return fn(); } catch (e) { return fallback; } }
+function labelPref(kind, code) {   // kind: cat | store | on
+    if (!code) return null;
+    return lsTry(() => localStorage.getItem('syrupLabel_' + kind + '_' + normCode(code)), null);
+}
+function saveLabelPref(kind, code, v) {
+    if (!code) return;
+    lsTry(() => localStorage.setItem('syrupLabel_' + kind + '_' + normCode(code), v), null);
+}
+
 function createEmptyDrug() {
     return {
         name: '',
@@ -1339,6 +1364,44 @@ function prescriptionApp() {
         },
 
         // 전체 초기화 (새 처방)
+        // ── 시럽 라벨 ──
+        // 라벨 대상 = 시럽으로 판정된 약 + «포함»을 직접 켠 약 (끈 약은 목록에 남기되 회색)
+        get labelRows() {
+            return this.drugs
+                .map((d, idx) => ({ d, idx }))
+                .filter(({ d }) => d.name && (isSyrupDrug(d) || this.labelOn(d) === true));
+        },
+        labelOn(d) {
+            if (d.labelOn !== undefined) return d.labelOn;
+            const v = labelPref('on', d.code);
+            return v === null ? isSyrupDrug(d) : v === '1';
+        },
+        setLabelOn(d, on) { d.labelOn = on; saveLabelPref('on', d.code, on ? '1' : '0'); },
+        labelCat(d) {
+            if (d.labelCat !== undefined) return d.labelCat;
+            return labelPref('cat', d.code) || '';
+        },
+        setLabelCat(d, v) { d.labelCat = v; saveLabelPref('cat', d.code, v); },
+        labelStore(d) {
+            if (d.labelStore !== undefined) return d.labelStore;
+            return labelPref('store', d.code) || '실온';
+        },
+        setLabelStore(d, v) { d.labelStore = v; saveLabelPref('store', d.code, v); },
+        labelLines(d) {
+            const n = Number(d.timesPerDay) || 0, days = Number(d.totalDays) || 0, dose = Number(d.dosePerTime) || 0;
+            const t = new Date();
+            const date = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+            return {
+                name: (this.patientName || '').trim(),
+                cat: this.labelCat(d),
+                drug: labelDrugName(d.name),
+                freq: (n && days) ? `1일 ${n}회(${days}일분)` : '',
+                dose: dose ? `1회 ${fmtNum(dose)}ml씩` + ((n && days) ? `(${fmtNum(Math.round(dose * n * days * 100) / 100)})` : '') : '',
+                store: this.labelStore(d),
+                date,
+            };
+        },
+
         resetAll() {
             this.patientName = '';
             this.birthDate = '';

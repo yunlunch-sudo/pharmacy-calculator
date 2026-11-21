@@ -6,15 +6,15 @@
     <title>처방전 계산기 - 윤약국</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
-    <script defer src="js/alpine.min.js?v=20261115"></script>
-    <script src="js/fee_table.js?v=20261115"></script>
-    <script src="js/calculator.js?v=20261115"></script>
-    <script src="js/drug_db.js?v=20261115"></script>
-    <script src="js/drug_db_hira.js?v=20261115"></script>
-    <script src="js/eng2kor.js?v=20261115"></script>
-    <script src="js/counseling_db.js?v=20261115"></script>
-    <script src="js/pill_index.js?v=20261115"></script>
-    <link rel="stylesheet" href="css/prescription.css?v=20261115">
+    <script defer src="js/alpine.min.js?v=20261121"></script>
+    <script src="js/fee_table.js?v=20261121"></script>
+    <script src="js/calculator.js?v=20261121"></script>
+    <script src="js/drug_db.js?v=20261121"></script>
+    <script src="js/drug_db_hira.js?v=20261121"></script>
+    <script src="js/eng2kor.js?v=20261121"></script>
+    <script src="js/counseling_db.js?v=20261121"></script>
+    <script src="js/pill_index.js?v=20261121"></script>
+    <link rel="stylesheet" href="css/prescription.css?v=20261121">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f766e">
     <link rel="icon" href="icons/icon-192.png">
@@ -272,6 +272,45 @@
             </div>
         </div>
 
+        <!-- 시럽 라벨 미리보기 (알리미팜 시럽 라벨 27×33mm 모양) -->
+        <div class="border-b label-section" x-show="labelRows.length > 0">
+            <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap">
+                <span>시럽 라벨 미리보기 <span class="text-hint" x-text="'(' + labelRows.filter(r => labelOn(r.d)).length + '장)'"></span></span>
+                <button class="btn-label-print" disabled title="라벨프린터 위치 맞추기가 끝나면 열립니다">라벨 인쇄 (준비 중)</button>
+            </div>
+            <div x-show="!patientName" class="text-hint" style="color:#b45309;margin-bottom:0.25rem">환자 이름을 넣으면 라벨 맨 위에 나옵니다.</div>
+            <div class="label-grid">
+                <template x-for="r in labelRows" :key="r.idx">
+                    <div class="label-item" :class="labelOn(r.d) ? '' : 'label-off'">
+                        <div class="syrup-label-zoom">
+                            <div class="syrup-label">
+                                <div class="sl-name" x-text="labelLines(r.d).name || '(이름)'"></div>
+                                <div class="sl-line" x-text="labelLines(r.d).cat || ' '"></div>
+                                <div class="sl-line sl-clip" x-text="labelLines(r.d).drug"></div>
+                                <div class="sl-line" x-text="labelLines(r.d).freq"></div>
+                                <div class="sl-dose" x-text="labelLines(r.d).dose"></div>
+                                <div class="sl-line" x-text="labelLines(r.d).store"></div>
+                                <div class="sl-line" x-text="labelLines(r.d).date"></div>
+                            </div>
+                        </div>
+                        <div class="label-ctrl">
+                            <input type="text" class="form-input label-cat" placeholder="분류 (예: 기침약)"
+                                   :value="labelCat(r.d)" @change="setLabelCat(r.d, $event.target.value.trim())" maxlength="10">
+                            <div class="label-store">
+                                <button :class="labelStore(r.d) === '실온' ? 'on' : ''" @click="setLabelStore(r.d, '실온')">실온</button>
+                                <button :class="labelStore(r.d) === '냉장' ? 'on' : ''" @click="setLabelStore(r.d, '냉장')">냉장</button>
+                            </div>
+                            <label class="checkbox-label" style="font-size:0.75rem">
+                                <input type="checkbox" :checked="labelOn(r.d)" @change="setLabelOn(r.d, $event.target.checked)">
+                                <span>라벨 뽑기</span>
+                            </label>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            <div class="text-hint" style="margin-top:0.25rem">분류·보관은 약마다 한 번 넣으면 이 PC에서 기억합니다.</div>
+        </div>
+
         <!-- 조제 옵션 -->
         <div class="options border-b">
             <div class="section-title">조제 옵션</div>
@@ -415,7 +454,7 @@
     <div class="footer">윤약국 처방전 계산기 | 2026년 수가 기준 | 약품 목록: 약국 DB + 심평원 급여목록(<span x-text="typeof HIRA_DB_VERSION !== 'undefined' ? HIRA_DB_VERSION : '-'"></span>) | 오프라인 사용 가능</div>
 </div>
 
-<script src="js/app.js?v=20261115"></script>
+<script src="js/app.js?v=20261121"></script>
 <script>
 // 크롬 «앱으로 설치» + 인터넷이 잠깐 끊겨도 열리도록 (https 에서 동작)
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

@@ -162,3 +162,23 @@ input[type="number"] { -moz-appearance: textfield; }
 /* 심평원 전체 급여목록에서 찾은 약 표시 */
 .hira-tag { display:inline-block; font-size:0.6rem; line-height:1.2; padding:0 0.25rem; margin-left:0.25rem;
     border-radius:0.25rem; background:#ecfeff; color:#0e7490; border:1px solid #a5f3fc; white-space:nowrap; flex-shrink:0; }
+
+/* 시럽 라벨 미리보기 — 실제 크기(27×33mm, 초록 테두리 미리 인쇄된 라벨)를 화면에서 2배로 */
+.label-section { padding: 0.75rem; }
+.label-grid { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.label-item { display: flex; gap: 0.5rem; align-items: flex-start; }
+.label-item.label-off .syrup-label-zoom { opacity: 0.35; }
+.syrup-label-zoom { zoom: 2; }
+.syrup-label { width: 27mm; height: 33mm; border: 1.2mm solid #6fbf9f; border-radius: 1.5mm; background: #fffdf8;
+    padding: 1mm 0.8mm; display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+    color: #111; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; overflow: hidden; }
+.sl-name { font-size: 4.2mm; font-weight: 800; line-height: 1.05; letter-spacing: 0.3mm; white-space: nowrap; }
+.sl-line { font-size: 2.6mm; line-height: 1.1; white-space: nowrap; max-width: 100%; }
+.sl-clip { overflow: hidden; }
+.sl-dose { font-size: 3.4mm; font-weight: 800; line-height: 1.05; white-space: nowrap; max-width: 100%; overflow: hidden; }
+.label-ctrl { display: flex; flex-direction: column; gap: 0.3rem; width: 8.5rem; }
+.label-cat { width: 100%; font-size: 0.8rem; }
+.label-store { display: flex; gap: 0.25rem; }
+.label-store button { flex: 1; font-size: 0.75rem; padding: 0.2rem 0; border: 1px solid #d1d5db; background: #fff; border-radius: 0.25rem; cursor: pointer; }
+.label-store button.on { background: #0f766e; color: #fff; border-color: #0f766e; }
+.btn-label-print { font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 0.25rem; border: 1px solid #d1d5db; background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
