@@ -242,6 +242,79 @@ function saveLabelPref(kind, code, v) {
     lsTry(() => localStorage.setItem('syrupLabel_' + kind + '_' + normCode(code), v), null);
 }
 
+// ── 라벨 도우미 (카운터 PC 의 label_helper.py, Star TSP700II 에 직접 인쇄) ──
+// 크롬 인쇄는 작업마다 라벨을 자르고 14mm 씩 밀려서(2026-11-21 실측) 쓰지 않는다.
+const LABEL_HELPER_URL = 'http://127.0.0.1:8680';
+const LABEL_W_MM = 27, LABEL_H_MM = 33;   // 초록 테두리 포함 라벨 한 칸 (테두리는 미리 인쇄돼 있음)
+
+// rows: [{text, size(mm), bold, invert}] → 라벨 크기 캔버스에 위아래 고르게 배치 (미리보기 CSS와 같은 배치)
+function drawLabelCanvas(rows, dpmm) {
+    const W = Math.round(LABEL_W_MM * dpmm), H = Math.round(LABEL_H_MM * dpmm);
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+    const font = (r, px) => `${r.bold ? '800 ' : ''}${px}px "Malgun Gothic", "Apple SD Gothic Neo", sans-serif`;
+    const maxW = (LABEL_W_MM - 4.4) * dpmm;           // 테두리 안쪽 폭
+    const items = rows.map(r => {
+        let px = r.size * dpmm;
+        g.font = font(r, px);
+        let w = g.measureText(r.text).width + (r.invert ? 2.4 * dpmm : 0);
+        if (w > maxW) { px = px * maxW / w; g.font = font(r, px); w = maxW; }   // 넘치면 글자를 줄인다
+        return { ...r, px, w };
+    });
+    const top = 2.0 * dpmm, bottom = H - 2.0 * dpmm;
+    const total = items.reduce((s, it) => s + it.px * 1.1, 0);
+    const gap = items.length > 1 ? Math.max(0, (bottom - top - total) / (items.length - 1)) : 0;
+    let y = top;
+    g.textAlign = 'center'; g.textBaseline = 'top';
+    for (const it of items) {
+        g.font = font(it, it.px);
+        if (it.invert) {
+            g.fillStyle = '#000';
+            g.fillRect(W / 2 - it.w / 2, y - 0.05 * it.px, it.w, it.px * 1.15);
+            g.fillStyle = '#fff';
+        } else g.fillStyle = '#000';
+        if (it.text) g.fillText(it.text, W / 2, y);
+        y += it.px * 1.1 + gap;
+    }
+    return cv;
+}
+
+// 캔버스 → 1비트 줄 데이터 (왼쪽 비트가 MSB, 1=검정) → base64
+function canvasToMono(cv) {
+    const { width: w, height: h } = cv;
+    const px = cv.getContext('2d').getImageData(0, 0, w, h).data;
+    const rb = Math.ceil(w / 8), out = new Uint8Array(rb * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11 < 140) out[y * rb + (x >> 3)] |= 0x80 >> (x & 7);
+    }
+    let bin = ''; for (let i = 0; i < out.length; i += 8192) bin += String.fromCharCode.apply(null, out.subarray(i, i + 8192));
+    return { w, h, data: btoa(bin) };
+}
+
+// 위치 맞추기용 눈금 (인쇄 폭 전체 × 라벨 피치). x 숫자 = 왼쪽 끝에서 mm, y 숫자 = 시작점에서 mm
+function drawRulerCanvas(dpmm, widthMm, heightMm, tag) {
+    const W = Math.round(widthMm * dpmm), H = Math.round(heightMm * dpmm);
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.fillStyle = '#000';
+    for (let x = 0; x <= widthMm; x += 1) {
+        const X = Math.round(x * dpmm), long = x % 5 === 0;
+        g.fillRect(X, 0, 1, long ? 3 * dpmm : 1.5 * dpmm);
+        if (long) g.fillRect(X, 0, 1, H);
+    }
+    for (let y = 0; y <= heightMm; y += 1) {
+        const Y = Math.round(y * dpmm), long = y % 5 === 0;
+        g.fillRect(0, Y, long ? 4 * dpmm : 2 * dpmm, 1);
+    }
+    g.font = `bold ${2.6 * dpmm}px Arial, sans-serif`; g.textBaseline = 'top';
+    for (let x = 5; x < widthMm; x += 5) for (let y = 5; y < heightMm - 3; y += 10) g.fillText(String(x), x * dpmm + 2, y * dpmm);
+    for (let y = 5; y < heightMm; y += 5) { g.fillStyle = '#fff'; g.fillRect(4.3 * dpmm, y * dpmm - 2, 5 * dpmm, 2.8 * dpmm); g.fillStyle = '#000'; g.fillText('y' + y, 4.5 * dpmm, y * dpmm - 1); }
+    g.font = `bold ${8 * dpmm}px Arial, sans-serif`; g.fillStyle = '#fff'; g.fillRect(13 * dpmm, 16 * dpmm, 7 * dpmm, 8.5 * dpmm); g.fillStyle = '#000'; g.fillText(tag, 14 * dpmm, 16.5 * dpmm);   // 번호는 라벨 안(14mm)에
+    return cv;
+}
+
 function createEmptyDrug() {
     return {
         name: '',
@@ -336,6 +409,10 @@ function prescriptionApp() {
         patientName: '',
         patientSex: '',          // 환자 라벨용 '남' | '여'
         patientLabelOn: true,    // 환자 이름 라벨 뽑기
+        helper: null,            // 라벨 도우미 /health 응답 (없으면 null → 미리보기만)
+        labelMsg: '',            // 라벨 인쇄 결과 안내
+        labelBusy: false,
+        rulerCount: 0,
         birthDate: '',
         age: null,
 
@@ -381,6 +458,7 @@ function prescriptionApp() {
         calcResult: { items: [], totalFee: 0, appliedConditions: [] },
 
         init() {
+            this.checkHelper();
             // 약품 DB는 drug_db.js에서 전역 변수로 로드됨 (오프라인 지원)
             if (DRUG_DB.length === 0 && typeof DRUG_DB_DATA !== 'undefined') {
                 DRUG_DB = DRUG_DB_DATA;
@@ -1384,6 +1462,86 @@ function prescriptionApp() {
             };
         },
 
+        // ── 라벨 도우미 연결·인쇄 ──
+        async checkHelper() {
+            try {
+                const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 1500);
+                const r = await fetch(LABEL_HELPER_URL + '/health', { signal: ctl.signal });
+                clearTimeout(t);
+                const j = await r.json();
+                this.helper = (j && j.app === 'yoon-label-helper') ? j : null;
+            } catch (e) { this.helper = null; }
+        },
+        // 인쇄할 라벨 그림들 (환자 라벨 → 시럽 라벨 순)
+        labelImages() {
+            const dpmm = (this.helper && this.helper.dots_per_mm) || 8;
+            const imgs = [];
+            const P = this.patientLabel;
+            if (P.show && this.patientLabelOn) {
+                imgs.push(canvasToMono(drawLabelCanvas([
+                    { text: P.name || '', size: 4.2, bold: true },
+                    { text: P.ageSex, size: 2.6 }, { text: P.freq, size: 2.6 }, { text: P.date, size: 2.6 },
+                    { text: '윤약국', size: 3.0, bold: true, invert: true }, { text: 'T.03180779975', size: 2.6 },
+                ], dpmm)));
+            }
+            for (const r of this.labelRows) {
+                if (!this.labelOn(r.d)) continue;
+                const L = this.labelLines(r.d);
+                imgs.push(canvasToMono(drawLabelCanvas([
+                    { text: L.name, size: 4.2, bold: true }, { text: L.cat, size: 2.6 }, { text: L.drug, size: 2.6 },
+                    { text: L.freq, size: 2.6 }, { text: L.dose, size: 3.4, bold: true },
+                    { text: L.store, size: 2.6 }, { text: L.date, size: 2.6 },
+                ], dpmm)));
+            }
+            return imgs;
+        },
+        async sendLabels(labels, raw) {
+            const r = await fetch(LABEL_HELPER_URL + '/print', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ labels, raw: !!raw }),
+            });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+            return j;
+        },
+        // «완료 (새 처방)»: 도우미가 있는 PC면 라벨을 뽑고 다음 처방으로
+        async completeRx() {
+            if (this.labelBusy) return;
+            await this.checkHelper();
+            const named = this.drugs.some(d => d.name);
+            if (this.helper && named) {
+                const missing = this.labelRows.filter(r => this.labelOn(r.d) && !(r.d.dosePerTime && r.d.timesPerDay && r.d.totalDays));
+                if (missing.length && !confirm(`1회량·횟수·일수가 빈 시럽이 ${missing.length}개 있습니다.\n그래도 라벨을 뽑고 완료할까요?`)) return;
+                const imgs = this.labelImages();
+                if (imgs.length) {
+                    this.labelBusy = true;
+                    try {
+                        await this.sendLabels(imgs, false);
+                        this.labelMsg = `✓ 라벨 ${imgs.length}장 인쇄 보냄`;
+                    } catch (e) {
+                        this.labelBusy = false;
+                        if (!confirm('라벨 인쇄 실패: ' + e.message + '\n\n라벨 없이 다음 처방으로 넘어갈까요?')) return;
+                        this.labelMsg = '⚠ 라벨 인쇄 실패: ' + e.message;
+                    }
+                    this.labelBusy = false;
+                }
+            }
+            const msg = this.labelMsg;
+            this.resetAll();
+            this.labelMsg = msg;
+            setTimeout(() => { if (this.labelMsg === msg) this.labelMsg = ''; }, 6000);
+        },
+        // 위치 맞추기용 눈금 1장 (보정 없이 그대로)
+        async printRuler() {
+            await this.checkHelper();
+            if (!this.helper) { alert('이 PC에서 라벨 도우미가 켜져 있지 않습니다.'); return; }
+            this.rulerCount += 1;
+            const dpmm = this.helper.dots_per_mm || 8;
+            const cv = drawRulerCanvas(dpmm, this.helper.print_width_mm || 72, 38.5, String(this.rulerCount));
+            try { await this.sendLabels([canvasToMono(cv)], true); this.labelMsg = `✓ 눈금 ${this.rulerCount}번 보냄`; }
+            catch (e) { this.labelMsg = '⚠ 눈금 인쇄 실패: ' + e.message; }
+        },
+
         // ── 시럽 라벨 ──
         // 라벨 대상 = 시럽으로 판정된 약 + «포함»을 직접 켠 약 (끈 약은 목록에 남기되 회색)
         get labelRows() {
@@ -1426,6 +1584,7 @@ function prescriptionApp() {
             this.patientName = '';
             this.patientSex = '';
             this.patientLabelOn = true;
+            this.labelMsg = '';
             this.birthDate = '';
             this.age = null;
             this.ocrStatus = '';

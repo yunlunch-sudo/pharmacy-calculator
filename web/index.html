@@ -6,15 +6,15 @@
     <title>처방전 계산기 - 윤약국</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
-    <script defer src="js/alpine.min.js?v=20261121"></script>
-    <script src="js/fee_table.js?v=20261121"></script>
-    <script src="js/calculator.js?v=20261121"></script>
-    <script src="js/drug_db.js?v=20261121"></script>
-    <script src="js/drug_db_hira.js?v=20261121"></script>
-    <script src="js/eng2kor.js?v=20261121"></script>
-    <script src="js/counseling_db.js?v=20261121"></script>
-    <script src="js/pill_index.js?v=20261121"></script>
-    <link rel="stylesheet" href="css/prescription.css?v=20261121">
+    <script defer src="js/alpine.min.js?v=20261121b"></script>
+    <script src="js/fee_table.js?v=20261121b"></script>
+    <script src="js/calculator.js?v=20261121b"></script>
+    <script src="js/drug_db.js?v=20261121b"></script>
+    <script src="js/drug_db_hira.js?v=20261121b"></script>
+    <script src="js/eng2kor.js?v=20261121b"></script>
+    <script src="js/counseling_db.js?v=20261121b"></script>
+    <script src="js/pill_index.js?v=20261121b"></script>
+    <link rel="stylesheet" href="css/prescription.css?v=20261121b">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f766e">
     <link rel="icon" href="icons/icon-192.png">
@@ -280,7 +280,10 @@
         <div class="border-b label-section" x-show="patientLabel.show || labelRows.length > 0">
             <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap">
                 <span>라벨 미리보기 <span class="text-hint" x-text="'(' + (((patientLabel.show && patientLabelOn) ? 1 : 0) + labelRows.filter(r => labelOn(r.d)).length) + '장)'"></span></span>
-                <button class="btn-label-print" disabled title="라벨프린터 위치 맞추기가 끝나면 열립니다">라벨 인쇄 (준비 중)</button>
+                <span style="display:flex;gap:0.35rem;align-items:center">
+                    <span x-show="helper" class="tag tag-green" style="font-size:0.7rem">라벨 도우미 연결됨 — «완료» 누르면 인쇄</span>
+                    <span x-show="!helper" class="tag" style="font-size:0.7rem;background:#f3f4f6;color:#6b7280">이 PC는 미리보기만 (라벨 도우미 없음)</span>
+                </span>
             </div>
             <div x-show="!patientName" class="text-hint" style="color:#b45309;margin-bottom:0.25rem">환자 이름을 넣으면 라벨 맨 위에 나옵니다.</div>
             <div class="label-grid">
@@ -470,16 +473,19 @@
                 <span class="result-value-muted" x-text="'₩' + insuranceAmount.toLocaleString()"></span>
             </div>
             <div style="padding:0.75rem;text-align:center;display:flex;gap:0.5rem;justify-content:center">
-                <button @click="resetAll()" class="btn-reset">완료 (새 처방)</button>
+                <button @click="completeRx()" class="btn-reset" :disabled="labelBusy" x-text="labelBusy ? '라벨 보내는 중…' : '완료 (새 처방)'"></button>
+                <button x-show="helper" class="btn-label-print" style="cursor:pointer;color:#374151;align-self:center" @click="printRuler()" title="라벨 위치 맞추기용 눈금 1장 (평소엔 누르지 마세요)">눈금 시험</button>
                 <button @click="printCounseling()" class="btn-print">복약지도 출력</button>
             </div>
+            <div x-show="labelMsg" x-text="labelMsg" style="text-align:center;font-size:0.8rem;padding-bottom:0.5rem"
+                 :style="labelMsg.startsWith('⚠') ? 'color:#b91c1c' : 'color:#047857'"></div>
         </div>
     </div>
 
     <div class="footer">윤약국 처방전 계산기 | 2026년 수가 기준 | 약품 목록: 약국 DB + 심평원 급여목록(<span x-text="typeof HIRA_DB_VERSION !== 'undefined' ? HIRA_DB_VERSION : '-'"></span>) | 오프라인 사용 가능</div>
 </div>
 
-<script src="js/app.js?v=20261121"></script>
+<script src="js/app.js?v=20261121b"></script>
 <script>
 // 크롬 «앱으로 설치» + 인터넷이 잠깐 끊겨도 열리도록 (https 에서 동작)
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
