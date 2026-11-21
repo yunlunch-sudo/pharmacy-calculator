@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>라벨 시험지 2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #f3f4f6; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #111; }
+  .guide { max-width: 640px; margin: 16px auto; padding: 16px; background: #fff; border-radius: 8px; line-height: 1.65; font-size: 15px; }
+  .guide h1 { font-size: 18px; margin-bottom: 8px; }
+  .guide ol { padding-left: 20px; }
+  .guide b { color: #0f766e; }
+  .warn { margin-top: 10px; padding: 8px 10px; background: #fff7ed; border-left: 4px solid #f97316; font-size: 14px; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .btns button { padding: 10px 18px; font-size: 16px; background: #0f766e; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+  .wrap { padding: 0 16px 24px; overflow-x: auto; }
+  /* 인쇄 1번 = 라벨 한 칸 길이(38.5mm). 왼쪽 눈금 숫자 = 이번 인쇄 시작점에서 몇 mm 내려왔는지 */
+  .sheet { position: relative; width: 30mm; height: 38.5mm; background: #fff; margin: 0 auto; outline: 1px dashed #bbb; overflow: hidden; }
+  .t { position: absolute; left: 3mm; width: 3mm; border-top: 0.25mm solid #000; }
+  .t.major { width: 24mm; border-top-width: 0.35mm; }
+  .tn { position: absolute; left: 7mm; font: bold 2.6mm/1 Arial, sans-serif; background: #fff; padding: 0 0.4mm; }
+  .big { position: absolute; left: 16mm; top: 13mm; font: bold 11mm/1 Arial, sans-serif; background: #fff; }
+  @page { margin: 0; }
+  @media print {
+    body { background: #fff; }
+    .guide { display: none; }
+    .wrap { padding: 0; }
+    .sheet { outline: none; margin: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="guide">
+  <h1>시럽 라벨 시험지 2 — 한 장씩 인쇄할 때 위치</h1>
+  <ol>
+    <li><b>조제실 PC</b> 크롬에서 아래 <b>«1번 인쇄»</b> → 인쇄 창: 대상 <b>시럽라벨프린터</b> · 용지 <b>80mm x Receipt</b> · 여백 <b>없음</b> → 인쇄</li>
+    <li>다 나오면 <b>뜯지 말고</b> 바로 <b>«2번 인쇄»</b> → 인쇄 (설정은 기억돼 있을 거예요)</li>
+    <li>나온 라벨을 <b>떼지 말고</b>, 가능하면 <b>위에서 똑바로</b> 사진</li>
+    <li><b>프린터 전원 껐다 켜기</b> → 알리미팜에서 시럽 라벨 하나를 평소처럼 뽑아 제자리에 나오는지 확인</li>
+  </ol>
+  <div class="warn">4번(전원 껐다 켜기)을 꼭 해 주세요. 시험 인쇄 뒤에는 종이 위치가 어긋나 알리미팜 라벨이 비뚤게 나올 수 있습니다. 프린터 설정은 바뀌지 않습니다.</div>
+  <p style="margin-top:8px;color:#555;font-size:14px">왼쪽 눈금 숫자 = 그 인쇄가 시작된 곳에서 몇 mm 내려왔는지. 라벨의 위·아래 초록 테두리가 몇 mm 줄에 걸리는지, 1번과 2번이 같은 자리에 찍히는지를 봅니다.</p>
+  <div class="btns">
+    <button onclick="go(1)">1번 인쇄</button>
+    <button onclick="go(2)">2번 인쇄</button>
+  </div>
+</div>
+<div class="wrap"><div class="sheet" id="sheet"></div></div>
+<script>
+  function draw(n) {
+    let h = '';
+    for (let y = 0; y <= 38; y++) {
+      const major = y % 5 === 0;
+      h += `<div class="t${major ? ' major' : ''}" style="top:${y}mm"></div>`;
+      if (major) h += `<div class="tn" style="top:${y + 0.4}mm">${y}</div>`;
+    }
+    h += `<div class="big">${n}</div>`;
+    document.getElementById('sheet').innerHTML = h;
+  }
+  function go(n) { draw(n); setTimeout(() => window.print(), 50); }
+  draw(1);
+</script>
+</body>
+</html>
